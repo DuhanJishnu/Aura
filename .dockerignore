@@ -1,0 +1,12 @@
+.venv
+.git
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+eval/results*
+data/shop.db
+tests
+docs
+web
+scripts

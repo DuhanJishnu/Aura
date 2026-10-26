@@ -1,0 +1,1412 @@
+{
+  "overall": {
+    "agent": {
+      "n": 16,
+      "errors": 0,
+      "success": [
+        12,
+        16,
+        0.5050123107060135,
+        0.8981809801576265
+      ],
+      "strict_success": [
+        8,
+        8
+      ],
+      "purchase_intent": 3.5,
+      "natural": 4.0,
+      "pressured": [
+        0,
+        16
+      ],
+      "turns_to_decision": 3.8,
+      "relevance": 1.0,
+      "hallucination": [
+        0,
+        16
+      ],
+      "objection_resolved": [
+        2,
+        4
+      ],
+      "respected_no": [
+        2,
+        2
+      ],
+      "not_hijacked": [
+        2,
+        2
+      ],
+      "honest_empty": [
+        0,
+        1
+      ],
+      "order_follow_through": [
+        8,
+        10
+      ],
+      "tokens_in": 3062.0625,
+      "tokens_out": 463.5,
+      "latency": 9.311524970417485,
+      "rules": {
+        "retrieve": 13,
+        "cart": 10,
+        "confirm_order": 8,
+        "no_means_no": 6,
+        "clarify_missing": 5,
+        "browse": 4,
+        "refine": 4,
+        "compare": 2,
+        "passive_after_no": 2,
+        "answer_off_topic": 2,
+        "objection": 2,
+        "opinion": 1
+      }
+    },
+    "rag": {
+      "n": 16,
+      "errors": 0,
+      "success": [
+        14,
+        16,
+        0.6397666856325172,
+        0.9650232506629429
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 3.75,
+      "natural": 4.75,
+      "pressured": [
+        0,
+        16
+      ],
+      "turns_to_decision": 3.8181818181818183,
+      "relevance": 0.9166666666666667,
+      "hallucination": [
+        0,
+        16
+      ],
+      "objection_resolved": [
+        4,
+        4
+      ],
+      "respected_no": [
+        2,
+        2
+      ],
+      "not_hijacked": [
+        2,
+        2
+      ],
+      "honest_empty": [
+        1,
+        1
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 2573.8125,
+      "tokens_out": 258.6875,
+      "latency": 10.39155309270753,
+      "rules": {}
+    },
+    "plain": {
+      "n": 16,
+      "errors": 0,
+      "success": [
+        10,
+        16,
+        0.38640647097934805,
+        0.8151901744524719
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 3.4375,
+      "natural": 4.25,
+      "pressured": [
+        0,
+        16
+      ],
+      "turns_to_decision": 6.625,
+      "relevance": null,
+      "hallucination": [
+        1,
+        16
+      ],
+      "objection_resolved": [
+        3,
+        3
+      ],
+      "respected_no": [
+        2,
+        2
+      ],
+      "not_hijacked": [
+        2,
+        2
+      ],
+      "honest_empty": [
+        0,
+        1
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 2247.875,
+      "tokens_out": 326.4375,
+      "latency": 6.165084286227681,
+      "rules": {}
+    }
+  },
+  "by_category": {
+    "agent|vague": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        2,
+        2,
+        0.3423719528896193,
+        1.0
+      ],
+      "strict_success": [
+        2,
+        2
+      ],
+      "purchase_intent": 5.0,
+      "natural": 5.0,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": 3.5,
+      "relevance": 1.0,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        2,
+        2
+      ],
+      "tokens_in": 2646.0,
+      "tokens_out": 389.0,
+      "latency": 6.3550204833354655,
+      "rules": {
+        "browse": 2,
+        "cart": 2,
+        "confirm_order": 2,
+        "retrieve": 1
+      }
+    },
+    "rag|vague": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        2,
+        2,
+        0.3423719528896193,
+        1.0
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 5.0,
+      "natural": 4.5,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": 4.5,
+      "relevance": 0.75,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 3420.0,
+      "tokens_out": 315.0,
+      "latency": 10.412354849997428,
+      "rules": {}
+    },
+    "plain|strong_preference": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        0,
+        2,
+        0.0,
+        0.6576280471103807
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 3.0,
+      "natural": 4.0,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": null,
+      "relevance": null,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 2501.5,
+      "tokens_out": 381.0,
+      "latency": 6.840904915716757,
+      "rules": {}
+    },
+    "rag|strong_preference": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        1,
+        2,
+        0.09452865480086611,
+        0.905471345199134
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 3.0,
+      "natural": 4.5,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": 4.0,
+      "relevance": 0.6666666666666666,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 3140.0,
+      "tokens_out": 326.0,
+      "latency": 11.008704374995432,
+      "rules": {}
+    },
+    "agent|strong_preference": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        1,
+        2,
+        0.09452865480086611,
+        0.905471345199134
+      ],
+      "strict_success": [
+        1,
+        1
+      ],
+      "purchase_intent": 3.0,
+      "natural": 3.0,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": 4.0,
+      "relevance": 1.0,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        1,
+        1
+      ],
+      "tokens_in": 4037.5,
+      "tokens_out": 635.0,
+      "latency": 10.576218612501908,
+      "rules": {
+        "clarify_missing": 2,
+        "retrieve": 2,
+        "cart": 1,
+        "confirm_order": 1,
+        "opinion": 1,
+        "refine": 1,
+        "no_means_no": 1
+      }
+    },
+    "plain|vague": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        2,
+        2,
+        0.3423719528896193,
+        1.0
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 5.0,
+      "natural": 5.0,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": 9.0,
+      "relevance": null,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 4753.5,
+      "tokens_out": 527.5,
+      "latency": 6.372838311252235,
+      "rules": {}
+    },
+    "rag|price_objection": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        1,
+        2,
+        0.09452865480086611,
+        0.905471345199134
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 3.0,
+      "natural": 5.0,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": 4.0,
+      "relevance": 1.0,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        2,
+        2
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 2562.0,
+      "tokens_out": 266.5,
+      "latency": 11.762089541670623,
+      "rules": {}
+    },
+    "plain|price_objection": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        2,
+        2,
+        0.3423719528896193,
+        1.0
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 5.0,
+      "natural": 4.0,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": 6.0,
+      "relevance": null,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        2,
+        2
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 2719.0,
+      "tokens_out": 438.5,
+      "latency": 6.886722924997836,
+      "rules": {}
+    },
+    "agent|price_objection": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        0,
+        2,
+        0.0,
+        0.6576280471103807
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 1.0,
+      "natural": 2.0,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": null,
+      "relevance": 1.0,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        0,
+        2
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 2765.0,
+      "tokens_out": 467.5,
+      "latency": 12.405210316666246,
+      "rules": {
+        "retrieve": 2,
+        "refine": 2,
+        "no_means_no": 2
+      }
+    },
+    "plain|indecision": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        2,
+        2,
+        0.3423719528896193,
+        1.0
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 5.0,
+      "natural": 5.0,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": 6.0,
+      "relevance": null,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 2692.0,
+      "tokens_out": 365.5,
+      "latency": 6.136019762856137,
+      "rules": {}
+    },
+    "plain|rejection": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        2,
+        2,
+        0.3423719528896193,
+        1.0
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 1.0,
+      "natural": 5.0,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": null,
+      "relevance": null,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        2,
+        2
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 514.5,
+      "tokens_out": 60.5,
+      "latency": 4.8842125083331975,
+      "rules": {}
+    },
+    "agent|indecision": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        2,
+        2,
+        0.3423719528896193,
+        1.0
+      ],
+      "strict_success": [
+        1,
+        1
+      ],
+      "purchase_intent": 5.0,
+      "natural": 3.5,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": 3.5,
+      "relevance": 1.0,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        1,
+        2
+      ],
+      "tokens_in": 3191.0,
+      "tokens_out": 487.0,
+      "latency": 10.413874504165506,
+      "rules": {
+        "retrieve": 2,
+        "compare": 2,
+        "cart": 2,
+        "confirm_order": 1
+      }
+    },
+    "rag|rejection": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        2,
+        2,
+        0.3423719528896193,
+        1.0
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 1.0,
+      "natural": 5.0,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": null,
+      "relevance": null,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        2,
+        2
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 1764.0,
+      "tokens_out": 128.5,
+      "latency": 8.854864350001057,
+      "rules": {}
+    },
+    "rag|indecision": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        2,
+        2,
+        0.3423719528896193,
+        1.0
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 5.0,
+      "natural": 5.0,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": 3.5,
+      "relevance": 1.0,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 2637.5,
+      "tokens_out": 291.0,
+      "latency": 10.8372095124984,
+      "rules": {}
+    },
+    "agent|rejection": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        2,
+        2,
+        0.3423719528896193,
+        1.0
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 1.0,
+      "natural": 5.0,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": null,
+      "relevance": null,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        2,
+        2
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 2339.0,
+      "tokens_out": 355.5,
+      "latency": 10.909164266665659,
+      "rules": {
+        "browse": 2,
+        "no_means_no": 2,
+        "passive_after_no": 2
+      }
+    },
+    "plain|off_topic": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        2,
+        2,
+        0.3423719528896193,
+        1.0
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 5.0,
+      "natural": 5.0,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": 5.5,
+      "relevance": null,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        2,
+        2
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 2093.0,
+      "tokens_out": 325.0,
+      "latency": 5.784044416665953,
+      "rules": {}
+    },
+    "rag|off_topic": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        2,
+        2,
+        0.3423719528896193,
+        1.0
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 5.0,
+      "natural": 5.0,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": 4.0,
+      "relevance": 1.0,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        2,
+        2
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 2803.5,
+      "tokens_out": 265.0,
+      "latency": 9.810754087497116,
+      "rules": {}
+    },
+    "agent|off_topic": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        2,
+        2,
+        0.3423719528896193,
+        1.0
+      ],
+      "strict_success": [
+        2,
+        2
+      ],
+      "purchase_intent": 5.0,
+      "natural": 5.0,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": 4.5,
+      "relevance": 1.0,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        2,
+        2
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        2,
+        2
+      ],
+      "tokens_in": 3479.0,
+      "tokens_out": 487.0,
+      "latency": 7.224655737502326,
+      "rules": {
+        "answer_off_topic": 2,
+        "retrieve": 2,
+        "cart": 2,
+        "confirm_order": 2,
+        "clarify_missing": 1
+      }
+    },
+    "plain|sizing_stock": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        0,
+        2,
+        0.0,
+        0.6576280471103807
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 2.0,
+      "natural": 3.5,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": null,
+      "relevance": null,
+      "hallucination": [
+        1,
+        2
+      ],
+      "objection_resolved": [
+        1,
+        1
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        1
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 1328.0,
+      "tokens_out": 248.5,
+      "latency": 5.956815450001159,
+      "rules": {}
+    },
+    "rag|sizing_stock": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        2,
+        2,
+        0.3423719528896193,
+        1.0
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 3.0,
+      "natural": 5.0,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": 4.0,
+      "relevance": 1.0,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        2,
+        2
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        1,
+        1
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 2280.0,
+      "tokens_out": 267.0,
+      "latency": 10.200524258337584,
+      "rules": {}
+    },
+    "agent|sizing_stock": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        1,
+        2,
+        0.09452865480086611,
+        0.905471345199134
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 3.0,
+      "natural": 4.5,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": 5.0,
+      "relevance": 1.0,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        2,
+        2
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        1
+      ],
+      "order_follow_through": [
+        0,
+        1
+      ],
+      "tokens_in": 3669.0,
+      "tokens_out": 543.5,
+      "latency": 9.76797969250365,
+      "rules": {
+        "clarify_missing": 2,
+        "retrieve": 2,
+        "objection": 2,
+        "refine": 1,
+        "no_means_no": 1,
+        "cart": 1
+      }
+    },
+    "rag|frustration": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        2,
+        2,
+        0.3423719528896193,
+        1.0
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 5.0,
+      "natural": 4.0,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": 3.0,
+      "relevance": 1.0,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 1983.5,
+      "tokens_out": 210.5,
+      "latency": 10.2459237666626,
+      "rules": {}
+    },
+    "agent|frustration": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        2,
+        2,
+        0.3423719528896193,
+        1.0
+      ],
+      "strict_success": [
+        2,
+        2
+      ],
+      "purchase_intent": 5.0,
+      "natural": 4.0,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": 3.0,
+      "relevance": 1.0,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        2,
+        2
+      ],
+      "tokens_in": 2370.0,
+      "tokens_out": 343.5,
+      "latency": 6.840076149999125,
+      "rules": {
+        "retrieve": 2,
+        "cart": 2,
+        "confirm_order": 2
+      }
+    },
+    "plain|frustration": {
+      "n": 2,
+      "errors": 0,
+      "success": [
+        0,
+        2,
+        0.0,
+        0.6576280471103807
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 1.5,
+      "natural": 2.5,
+      "pressured": [
+        0,
+        2
+      ],
+      "turns_to_decision": null,
+      "relevance": null,
+      "hallucination": [
+        0,
+        2
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 1381.5,
+      "tokens_out": 265.0,
+      "latency": 6.4591159999981755,
+      "rules": {}
+    }
+  }
+}

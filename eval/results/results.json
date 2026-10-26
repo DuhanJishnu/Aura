@@ -1,0 +1,405 @@
+{
+  "overall": {
+    "agent": {
+      "n": 6,
+      "errors": 0,
+      "success": [
+        6,
+        6,
+        0.6096569663469354,
+        1.0
+      ],
+      "strict_success": [
+        5,
+        5
+      ],
+      "purchase_intent": 4.333333333333333,
+      "natural": 4.5,
+      "pressured": [
+        1,
+        6
+      ],
+      "turns_to_decision": 5.0,
+      "relevance": 1.0,
+      "hallucination": [
+        0,
+        6
+      ],
+      "objection_resolved": [
+        0,
+        1
+      ],
+      "respected_no": [
+        1,
+        1
+      ],
+      "not_hijacked": [
+        1,
+        1
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        5,
+        5
+      ],
+      "tokens_in": 3591.8333333333335,
+      "tokens_out": 495.1666666666667,
+      "tokens_thought": 0.0,
+      "latency": 1.5355399162667231,
+      "rules": {
+        "retrieve": 6,
+        "cart": 5,
+        "checkout": 5,
+        "just_looking": 3,
+        "no_means_no": 3,
+        "opinion": 2,
+        "focus": 1,
+        "clarify_missing": 1,
+        "compare": 1,
+        "answer_off_topic": 1
+      }
+    }
+  },
+  "by_category": {
+    "agent|strong_preference": {
+      "n": 1,
+      "errors": 0,
+      "success": [
+        1,
+        1,
+        0.20654329147389294,
+        1.0
+      ],
+      "strict_success": [
+        1,
+        1
+      ],
+      "purchase_intent": 5.0,
+      "natural": 5.0,
+      "pressured": [
+        0,
+        1
+      ],
+      "turns_to_decision": 5.0,
+      "relevance": 1.0,
+      "hallucination": [
+        0,
+        1
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        1,
+        1
+      ],
+      "tokens_in": 3697.0,
+      "tokens_out": 590.0,
+      "tokens_thought": 0.0,
+      "latency": 1.5446298599999864,
+      "rules": {
+        "retrieve": 1,
+        "opinion": 1,
+        "focus": 1,
+        "cart": 1,
+        "checkout": 1
+      }
+    },
+    "agent|vague": {
+      "n": 1,
+      "errors": 0,
+      "success": [
+        1,
+        1,
+        0.20654329147389294,
+        1.0
+      ],
+      "strict_success": [
+        1,
+        1
+      ],
+      "purchase_intent": 5.0,
+      "natural": 5.0,
+      "pressured": [
+        0,
+        1
+      ],
+      "turns_to_decision": 7.0,
+      "relevance": 1.0,
+      "hallucination": [
+        0,
+        1
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        1,
+        1
+      ],
+      "tokens_in": 5327.0,
+      "tokens_out": 769.0,
+      "tokens_thought": 0.0,
+      "latency": 1.3679411142823352,
+      "rules": {
+        "just_looking": 2,
+        "clarify_missing": 1,
+        "retrieve": 1,
+        "cart": 1,
+        "checkout": 1,
+        "no_means_no": 1
+      }
+    },
+    "agent|price_objection": {
+      "n": 1,
+      "errors": 0,
+      "success": [
+        1,
+        1,
+        0.20654329147389294,
+        1.0
+      ],
+      "strict_success": [
+        1,
+        1
+      ],
+      "purchase_intent": 5.0,
+      "natural": 4.0,
+      "pressured": [
+        0,
+        1
+      ],
+      "turns_to_decision": 4.0,
+      "relevance": 1.0,
+      "hallucination": [
+        0,
+        1
+      ],
+      "objection_resolved": [
+        0,
+        1
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        1,
+        1
+      ],
+      "tokens_in": 3075.0,
+      "tokens_out": 328.0,
+      "tokens_thought": 0.0,
+      "latency": 1.6566431999890483,
+      "rules": {
+        "retrieve": 2,
+        "cart": 1,
+        "checkout": 1
+      }
+    },
+    "agent|indecision": {
+      "n": 1,
+      "errors": 0,
+      "success": [
+        1,
+        1,
+        0.20654329147389294,
+        1.0
+      ],
+      "strict_success": [
+        1,
+        1
+      ],
+      "purchase_intent": 5.0,
+      "natural": 5.0,
+      "pressured": [
+        0,
+        1
+      ],
+      "turns_to_decision": 5.0,
+      "relevance": 1.0,
+      "hallucination": [
+        0,
+        1
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        1,
+        1
+      ],
+      "tokens_in": 4139.0,
+      "tokens_out": 589.0,
+      "tokens_thought": 0.0,
+      "latency": 1.6188966399990021,
+      "rules": {
+        "retrieve": 1,
+        "opinion": 1,
+        "compare": 1,
+        "cart": 1,
+        "checkout": 1
+      }
+    },
+    "agent|rejection": {
+      "n": 1,
+      "errors": 0,
+      "success": [
+        1,
+        1,
+        0.20654329147389294,
+        1.0
+      ],
+      "strict_success": [
+        0,
+        0
+      ],
+      "purchase_intent": 1.0,
+      "natural": 3.0,
+      "pressured": [
+        1,
+        1
+      ],
+      "turns_to_decision": null,
+      "relevance": null,
+      "hallucination": [
+        0,
+        1
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        1,
+        1
+      ],
+      "not_hijacked": [
+        0,
+        0
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        0,
+        0
+      ],
+      "tokens_in": 2472.0,
+      "tokens_out": 373.0,
+      "tokens_thought": 0.0,
+      "latency": 1.421290833328385,
+      "rules": {
+        "no_means_no": 2,
+        "just_looking": 1
+      }
+    },
+    "agent|off_topic": {
+      "n": 1,
+      "errors": 0,
+      "success": [
+        1,
+        1,
+        0.20654329147389294,
+        1.0
+      ],
+      "strict_success": [
+        1,
+        1
+      ],
+      "purchase_intent": 5.0,
+      "natural": 5.0,
+      "pressured": [
+        0,
+        1
+      ],
+      "turns_to_decision": 4.0,
+      "relevance": 1.0,
+      "hallucination": [
+        0,
+        1
+      ],
+      "objection_resolved": [
+        0,
+        0
+      ],
+      "respected_no": [
+        0,
+        0
+      ],
+      "not_hijacked": [
+        1,
+        1
+      ],
+      "honest_empty": [
+        0,
+        0
+      ],
+      "order_follow_through": [
+        1,
+        1
+      ],
+      "tokens_in": 2841.0,
+      "tokens_out": 322.0,
+      "tokens_thought": 0.0,
+      "latency": 1.6038378500015824,
+      "rules": {
+        "answer_off_topic": 1,
+        "retrieve": 1,
+        "cart": 1,
+        "checkout": 1
+      }
+    }
+  }
+}

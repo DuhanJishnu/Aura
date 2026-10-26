@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-400: #4fae8c;
+  --color-brand-500: #2f7a62;
+  --color-brand-600: #1f5f4a;
+  --color-brand-700: #184a3a;
+}
+
+html, body { height: 100%; }
+body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+/* Respect people who ask for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
