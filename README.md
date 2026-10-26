@@ -34,8 +34,7 @@ npm run dev                          # open http://localhost:3000  (it proxies /
 ```
 
 No key yet? `python -m scripts.serve_fake` starts the backend with a keyword-matching fake LLM (not Gemini) so you can try
-the whole UI. Backend only, no Node: `uvicorn` also serves a plain-JavaScript fallback UI at http://localhost:8000
-(`frontend/`, kept as a lightweight option).
+the whole UI.
 
 Try: `sports shoes, size 9` -> click a shoe -> `what do you think of it?` -> `too expensive` -> `buy this` -> `place order`.
 A two-minute script that shows everything is in [docs/DEMO.md](docs/DEMO.md).
@@ -165,15 +164,15 @@ app/        main.py (API, SSE), schemas.py
   policy/   rules.py (the rule table)
   profile/  model.py, store.py, ranking.py (palette + preferences -> ranking)
   catalog/  db.py, search.py          validators.py (grounding checks)
-data/       seed.py                   frontend/  plain-JS fallback UI     scripts/  serve_fake.py (key-less demo)
+data/       seed.py                                             scripts/  serve_fake.py (key-less demo)
 eval/       personas, simulators, systems, metrics, report, run, review, show, latency
-tests/      251 backend tests         docs/      ARCHITECTURE, DEMO, EVALUATION, DEVELOPMENT_LOG, ROADMAP
+tests/      backend tests             docs/      ARCHITECTURE, DEMO, EVALUATION, DEVELOPMENT_LOG, ROADMAP
 ```
 
 ## Development
 
 ```bash
-ruff check . && pytest -q            # backend (also runs the plain-JS helper tests when Node is installed)
+ruff check . && pytest -q            # backend
 (cd web && npm run typecheck && npm test && npm run build)     # frontend
 python -m eval.run --offline --systems agent --sim scripted --n 48    # harness check, free, not a result
 python -m eval.latency               # where the time goes (needs a key)

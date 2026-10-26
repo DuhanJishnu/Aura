@@ -7,11 +7,9 @@ import queue
 import threading
 import time
 from contextlib import asynccontextmanager, contextmanager
-from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from fastapi.staticfiles import StaticFiles
 
 from app.catalog.db import DB_PATH, connect, init_db
 from app.catalog.search import get_shoe, get_shoes_by_ids, search_shoes
@@ -299,6 +297,6 @@ def complexion_cancel(req: SessionReq, conn=Depends(get_conn)):  # noqa: B008
     return {"ok": True}
 
 
-# Mounted last so API routes win. Serves the chat + product panel UI at "/".
-FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
-app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="frontend")
+@app.get("/")
+def root():
+    return {"name": "shopper-api", "status": "running"}

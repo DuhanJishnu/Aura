@@ -28,10 +28,10 @@ def test_product_detail_and_404(client):
     assert client.get("/products/99999").status_code == 404
 
 
-def test_frontend_served(client):
+def test_api_root(client):
     r = client.get("/")
-    assert r.status_code == 200 and "Shopper" in r.text
-    assert client.get("/app.js").status_code == 200
+    assert r.status_code == 200
+    assert r.json() == {"name": "shopper-api", "status": "running"}
 
 
 def test_products_by_ids_keeps_order(client):

@@ -41,7 +41,6 @@ hook, `hooks/useShopper.ts` (chat, panel view, cart, profile, photo flow); `lib/
 `onUi` the moment the products are known, so the grid loads while the sentence is still arriving. `hooks/useSpeech.ts` wraps the
 browser's speech recognition and synthesis. Components are small and presentational (`ProductDetail`, `CartDrawer`...), which
 is what the 29 Vitest tests exercise, along with the stream client, the proxy route and the main hook (against a fake backend).
-`frontend/` (plain JavaScript, served by FastAPI) is kept as a dependency-free fallback.
 
 ## State and persistence
 

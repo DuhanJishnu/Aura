@@ -6,7 +6,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY data ./data
-COPY frontend ./frontend
 RUN useradd --create-home shopper && chown -R shopper /app
 USER shopper
 EXPOSE 8000
