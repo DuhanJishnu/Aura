@@ -15,6 +15,7 @@ from app.catalog.search import (
 from app.engine import cart, profile_flow, sales
 from app.engine.common import (
     EMPTY,
+    FALLBACKS,
     _facts,
     _n,
     _resp,
@@ -29,9 +30,12 @@ from app.engine.common import (
 from app.engine.resolve import resolve_by_price, resolve_mentions
 from app.engine.signals import (
     detect_category,
+    detect_item_type,
+    detect_occasion,
     detect_semantic_query,
     explicit_budget,
     explicit_decline,
+    is_broad_category,
     is_fit_question,
     is_just_looking,
     is_quality_question,
@@ -365,6 +369,12 @@ def _run(action: Action, session: Session, ex: Extraction, message: str, llm: LL
         return _refine(session, ex, llm, conn) or _continue_flow(session, llm, conn)
     if action == Action.GREET:
         return _resp(session, _say(llm, conn, session, "greet"))
+    if action == Action.DISCUSS_OCCASION:
+        return _resp(session, _say(llm, conn, session, "discuss_occasion"))
+    if action == Action.NARROW_CATEGORY:
+        cat = session.slots.category or ex.category or "apparel"
+        kind = f"narrow_{cat}" if f"narrow_{cat}" in FALLBACKS else "narrow_apparel"
+        return _resp(session, _say(llm, conn, session, kind))
     if action == Action.CLARIFY:
         return _resp(session, _say(llm, conn, session, _next_missing(session)))
     return _present(session, llm, conn)  # RETRIEVE
@@ -396,6 +406,10 @@ def _label_signals(ex: Extraction, message: str) -> None:
         ex.category = detect_category(message)
     if ex.query is None and ex.intent in ("shopping", "browse", "refine"):
         ex.query = detect_semantic_query(message)
+    if ex.occasion is None:
+        ex.occasion = detect_occasion(message)
+    if ex.item_type is None:
+        ex.item_type = detect_item_type(message)
     """Before names are resolved: an exact budget, and plain fit/durability questions a lighter model may mislabel."""
     if ex.intent != "decline" and explicit_decline(message):
         ex.intent = "decline"  # "no thanks, just browsing" must never be read as browsing
@@ -441,6 +455,25 @@ def _handle(session: Session, message: str, llm: LLM, conn: sqlite3.Connection,
     if ex.intent in FLOW_INTENTS:
         _merge(session, ex)
         _apply_profile_size(session)
+    has_occasion = bool(
+        (ex.occasion or detect_occasion(message))
+        and not ex.item_type
+        and not detect_item_type(message)
+        and session.slots.size is None
+        and not session.shortlist
+        and not session.focused_id
+    )
+    has_full_slots = bool(
+        (session.slots.use or ex.use)
+        and (session.slots.size is not None or ex.size is not None or session.slots.category == "accessories")
+    )
+    needs_narrowing = bool(
+        not has_occasion
+        and not session.shortlist
+        and not session.focused_id
+        and not has_full_slots
+        and is_broad_category(message)
+    )
     situation = Situation(
         intent=ex.intent, refine=ex.refine, objection=ex.objection, declined=session.declined,
         engaged=engaged, awaiting_confirm=session.awaiting_confirm, has_shortlist=bool(session.shortlist),
@@ -450,6 +483,8 @@ def _handle(session: Session, message: str, llm: LLM, conn: sqlite3.Connection,
         slots_empty=not session.slots.model_dump(exclude_none=True, exclude={"category"}),
         missing_slot=_next_missing(session),
         pending_ready=bool(session.pending and session.slots.size is not None),
+        has_occasion=has_occasion,
+        needs_narrowing=needs_narrowing,
     )
     action, rule = decide(situation)
     response = _run(action, session, ex, message, llm, conn)

@@ -17,18 +17,35 @@ const bubble: Record<Message["role"], string> = {
   err: "self-start border border-red-600 text-red-700 dark:border-red-400 dark:text-red-300",
 };
 
-export default function ChatPanel({ messages, thinking, ready, onSend, onVoiceStart }: {
-  messages: Message[]; thinking: boolean; ready: boolean; onSend: (text: string) => void; onVoiceStart: () => void;
+export default function ChatPanel({ messages, thinking, ready, onSend, onVoiceStart, onRegisterResumeVoice }: {
+  messages: Message[];
+  thinking: boolean;
+  ready: boolean;
+  onSend: (text: string) => void;
+  onVoiceStart: () => void;
+  onRegisterResumeVoice?: (fn: () => void) => void;
 }) {
   const [text, setText] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
-  const voice = useSpeechInput({ onInterim: setText, onFinal: (t) => { setText(""); onSend(t); }, onStart: onVoiceStart });
+  const voice = useSpeechInput({
+    onInterim: setText,
+    onFinal: (t) => {
+      setText("");
+      onSend(t);
+    },
+    onStart: onVoiceStart,
+  });
+
+  useEffect(() => {
+    onRegisterResumeVoice?.(voice.resumeListening);
+  }, [onRegisterResumeVoice, voice.resumeListening]);
 
   useEffect(() => { endRef.current?.scrollIntoView?.({ block: "end" }); }, [messages, thinking]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim()) return;
+    voice.stop();
     onSend(text);
     setText("");
   };
@@ -55,12 +72,22 @@ export default function ChatPanel({ messages, thinking, ready, onSend, onVoiceSt
           placeholder="Tell me what you're looking for…"
           className="min-w-0 flex-1 rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 outline-none focus:border-brand-600 dark:border-neutral-700 dark:bg-neutral-950" />
         {voice.supported && (
-          <Button variant={voice.listening ? "primary" : "ghost"} aria-pressed={voice.listening} aria-label="Speak your message" onClick={voice.toggle}
-            title="Speak (your browser's speech service hears the audio)">Mic</Button>
+          <Button
+            variant={voice.voiceMode ? "primary" : "ghost"}
+            aria-pressed={voice.voiceMode}
+            aria-label={voice.voiceMode ? "Stop continuous voice conversation" : "Start continuous voice conversation"}
+            onClick={voice.toggle}
+            title={voice.voiceMode ? "Hands-free voice mode active. Click to stop." : "Start hands-free voice conversation (keeps listening across questions)"}
+            className={voice.listening ? "ring-2 ring-brand-500 animate-pulse font-semibold" : ""}
+          >
+            {voice.voiceMode ? "Mic • Live" : "Mic"}
+          </Button>
         )}
         <Button type="submit" disabled={!ready || thinking || !text.trim()}>Send</Button>
       </form>
-      <div role="status" aria-live="polite" className="min-h-[1.25rem] px-4 pb-2 text-xs text-stone-500 dark:text-stone-400">{voice.status}</div>
+      <div role="status" aria-live="polite" className={`min-h-[1.25rem] px-4 pb-2 text-xs ${voice.voiceMode ? "text-brand-600 dark:text-brand-400 font-medium" : "text-stone-500 dark:text-stone-400"}`}>
+        {voice.voiceMode ? (voice.status || "Voice mode active (hands-free)") : voice.status}
+      </div>
     </section>
   );
 }

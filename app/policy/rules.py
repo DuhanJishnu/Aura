@@ -22,6 +22,8 @@ class Action(StrEnum):
     RESUME_CART = "resume_cart"
     REFINE = "refine"
     GREET = "greet"
+    DISCUSS_OCCASION = "discuss_occasion"
+    NARROW_CATEGORY = "narrow_category"
     CLARIFY = "clarify"
     RETRIEVE = "retrieve"
     QUIET = "quiet"
@@ -48,6 +50,8 @@ class Situation:
     awaiting_consent: bool = False   # photo-analysis consent was just asked for
     pending_complexion: bool = False  # an unconfirmed estimate is waiting for the user
     pending_ready: bool = False     # a cart add was waiting for a size and we now have one
+    has_occasion: bool = False      # user stated an occasion (party, wedding) without specifying items
+    needs_narrowing: bool = False   # user stated broad category without specific item type
 
 
 @dataclass(frozen=True)
@@ -99,6 +103,10 @@ RULES: list[Rule] = [
     Rule("refine", lambda s: s.intent == "refine" and bool(s.refine) and s.has_shortlist, Action.REFINE,
          "Cheaper / other colors / show more by updating filters."),
     Rule("greet", lambda s: s.intent == "greeting" and s.slots_empty, Action.GREET, "Greet and ask the first question."),
+    Rule("discuss_occasion", lambda s: s.has_occasion and not s.has_shortlist and not s.has_focus, Action.DISCUSS_OCCASION,
+         "User mentions an occasion without an active shortlist: ask how they want to dress up and what pieces they need."),
+    Rule("narrow_category", lambda s: s.needs_narrowing and not s.has_shortlist and not s.has_focus, Action.NARROW_CATEGORY,
+         "Broad category requested without specific item type: present 3-4 options in one question."),
     Rule("clarify_missing", lambda s: s.missing_slot is not None, Action.CLARIFY, "Ask exactly one missing question."),
     Rule("retrieve", lambda s: True, Action.RETRIEVE, "Enough information: search and show products."),
 ]

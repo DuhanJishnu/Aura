@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useShopper } from "@/hooks/useShopper";
 import { useSpeechOutput } from "@/hooks/useSpeech";
 import CartDrawer from "./CartDrawer";
@@ -10,8 +10,26 @@ import ProductPanel from "./ProductPanel";
 import ProfileDrawer from "./ProfileDrawer";
 
 export default function StoreFront() {
-  const speech = useSpeechOutput();
-  const shopper = useShopper({ onReply: speech.speak, onSend: speech.cancel });
+  const resumeVoiceRef = useRef<() => void>(() => {});
+
+  const speech = useSpeechOutput({
+    onEnd: () => {
+      resumeVoiceRef.current();
+    },
+  });
+
+  const shopper = useShopper({
+    onReply: (text) => {
+      if (speech.enabled) {
+        speech.speak(text);
+      } else {
+        setTimeout(() => {
+          resumeVoiceRef.current();
+        }, 800);
+      }
+    },
+    onSend: speech.cancel,
+  });
   const { ready, refreshCart, refreshProfile } = shopper;
 
   useEffect(() => { if (ready) void refreshCart(); }, [ready, refreshCart]);   // a reload keeps the server-side cart
@@ -22,7 +40,14 @@ export default function StoreFront() {
       <Header cartCount={shopper.cart.items.length} speech={speech}
         onProfile={() => shopper.setProfileOpen(!shopper.profileOpen)} onCart={() => shopper.setCartOpen(!shopper.cartOpen)} />
       <main className="grid min-h-0 flex-1 grid-rows-2 lg:grid-cols-[minmax(20rem,2fr)_3fr] lg:grid-rows-1">
-        <ChatPanel messages={shopper.messages} thinking={shopper.thinking} ready={shopper.ready} onSend={shopper.send} onVoiceStart={speech.cancel} />
+        <ChatPanel
+          messages={shopper.messages}
+          thinking={shopper.thinking}
+          ready={shopper.ready}
+          onSend={shopper.send}
+          onVoiceStart={speech.cancel}
+          onRegisterResumeVoice={(fn) => { resumeVoiceRef.current = fn; }}
+        />
         <section aria-label="Products" className="overflow-y-auto p-4"><ProductPanel shopper={shopper} /></section>
       </main>
       <CartDrawer open={shopper.cartOpen} cart={shopper.cart} onClose={() => shopper.setCartOpen(false)}

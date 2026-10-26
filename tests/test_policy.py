@@ -25,6 +25,8 @@ CASES = [
     (dict(intent="shopping", engaged=True, pending_ready=True), A.RESUME_CART, "resume_pending_cart"),
     (dict(intent="refine", refine="cheaper", has_shortlist=True, engaged=True), A.REFINE, "refine"),
     (dict(intent="greeting"), A.GREET, "greet"),
+    (dict(intent="shopping", engaged=True, has_occasion=True), A.DISCUSS_OCCASION, "discuss_occasion"),
+    (dict(intent="shopping", engaged=True, needs_narrowing=True), A.NARROW_CATEGORY, "narrow_category"),
     (dict(intent="shopping", engaged=True, slots_empty=False, missing_slot="ask_size"), A.CLARIFY, "clarify_missing"),
     (dict(intent="shopping", engaged=True, slots_empty=False), A.RETRIEVE, "retrieve"),
     (dict(intent="confirm", awaiting_confirm=False, engaged=True), A.RETRIEVE, "retrieve"),

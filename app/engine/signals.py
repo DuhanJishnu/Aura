@@ -40,6 +40,44 @@ def detect_category(message: str) -> str | None:
     return hits[0] if len(hits) == 1 else None
 
 
+_OCCASIONS = re.compile(
+    r"\b(party|partying|wedding|interview|date|date night|birthday|festival|event|gala|night out|clubbing|dinner|vacation|trip|celebration|reception)\b",
+    re.I,
+)
+
+
+def detect_occasion(message: str) -> str | None:
+    m = _OCCASIONS.search(message)
+    return m.group(1).lower() if m else None
+
+
+_SPECIFIC_ITEMS = re.compile(
+    r"\b(t-?shirts?|tees?|polo(?: shirt)?s?|shirts?|chinos|trousers|pants|jeans|shorts|blazers?|hoodies?|jackets?|"
+    r"sweatshirts?|sneakers?|oxfords?|derby|derbies|loafers?|brogues?|boots?|sandals?|backpacks?|"
+    r"gym bags?|laptop bags?|wallets?|belts?|watch(?:es)?|sunglasses|caps?|ties?)\b",
+    re.I,
+)
+
+
+def detect_item_type(message: str) -> str | None:
+    m = _SPECIFIC_ITEMS.search(message)
+    return m.group(1).lower() if m else None
+
+
+def is_broad_category(message: str, category: str | None = None) -> bool:
+    """True if user explicitly asked for generic clothes/clothing/apparel or clicked broad category chips."""
+    clean = message.strip().lower()
+    if clean in {
+        "shoes", "looking for shoes", "i'm looking for shoes",
+        "accessories", "looking for accessories", "i'm looking for accessories",
+        "clothes", "looking for clothes", "i'm looking for clothes",
+    }:
+        return True
+    if re.search(r"\b(clothes|clothing|apparel)\b", message, re.I) and not detect_item_type(message):
+        return True
+    return False
+
+
 _SEMANTIC_TERMS = re.compile(
     r"\b(monsoon|rainy?|waterproof|water-resistant|light(?:weight)?|breathable|cushion(?:ed|ing)?|"
     r"comfort(?:able)?|summer|winter|interview|workout|gym|walking|travel|wrinkle-free|durable|sturdy|grip)\b",

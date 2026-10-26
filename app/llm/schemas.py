@@ -19,6 +19,8 @@ class Extraction(BaseModel):
     budget: int | None = None
     color: str | None = None
     query: str | None = None
+    occasion: str | None = None
+    item_type: str | None = None
     refine: Literal["cheaper", "other_colors", "show_more"] | None = None
     product_index: int | None = None
     objection: Literal["price", "fit", "quality"] | None = None

@@ -124,3 +124,26 @@ def test_grounding_strips_hallucinated_opinion(conn):
     r = c.say("what do you think of it?", focus=pid)
     assert "99,999" not in r.reply and f"₹{shoe['price']:,}" in r.reply
     assert not any(b in r.reply for b in ("Nike would", "Clarks would"))
+
+
+def test_party_occasion_asks_before_searching(conn):
+    c = Chat(conn)
+    r = c.say("I am going to a party")
+    assert r.policy["action"] == "discuss_occasion"
+    assert r.ui_action.type == "none"
+    assert "exciting" in r.reply.lower() or "dress up" in r.reply.lower()
+
+
+def test_clothes_narrowing_presents_options(conn):
+    c = Chat(conn)
+    r = c.say("I'm looking for clothes")
+    assert r.policy["action"] == "narrow_category"
+    assert r.ui_action.type == "none"
+    assert "Tops" in r.reply and "Bottoms" in r.reply
+
+
+def test_search_presentation_is_neutral(conn):
+    c = Chat(conn)
+    r = c.say("sports shoes, size 9")
+    assert r.ui_action.type == "show_products"
+    assert "I have put matching items on your screen" in r.reply
