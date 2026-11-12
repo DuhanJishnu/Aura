@@ -1,56 +1,85 @@
 "use client";
 
-import { useState } from "react";
-import { categoryOf, rupees, sizeLabel } from "@/lib/format";
-import type { Product, Slots } from "@/lib/types";
+import type { FashionItem } from "@/lib/types";
 import Thumb from "./Thumb";
 import { Button, Meta } from "./ui";
 
-export default function ProductDetail({ product, slots, onBack, onAsk, onAdd }: {
-  product: Product; slots: Slots; onBack: () => void; onAsk: () => void; onAdd: (size: number) => void;
+export default function ProductDetail({
+  item,
+  onBack,
+  onAsk,
+  onSave,
+  onStyleAround,
+}: {
+  item: FashionItem;
+  onBack: () => void;
+  onAsk: () => void;
+  onSave: () => void;
+  onStyleAround: () => void;
 }) {
-  const category = categoryOf(product);
-  const sizes = product.sizes_in_stock ?? [];
-  // accessories are one size; otherwise pre-select the size the shopper already told us, if it is in stock
-  const initial = category === "accessories" ? (sizes[0] ?? null)
-    : categoryOf(slots) === category && slots.size != null && sizes.includes(slots.size) ? slots.size : null;
-  const [chosen, setChosen] = useState<number | null>(initial);
-  const [hint, setHint] = useState("");
-
-  const add = () => {
-    if (chosen === null) { setHint("Pick a size first, then add it to your cart."); return; }
-    setHint("");
-    onAdd(chosen);
-  };
-
   return (
-    <article>
-      <Button variant="ghost" className="mb-3" onClick={onBack}>← Back to results</Button>
-      <Thumb product={product} className="mb-4 h-56 rounded-2xl text-xl" />
-      <h2 className="text-xl font-semibold">{product.name}</h2>
-      <Meta>{product.brand} · {product.color} · {product.use_type} · ★ {product.rating}</Meta>
-      <div className="mt-1 font-semibold">{rupees(product.price)}</div>
-      <p className="my-3">{product.description}</p>
-
-      <div className="mb-4 flex flex-wrap items-center gap-1.5">
-        {sizes.length === 0 ? <Meta>Out of stock</Meta>
-          : category === "accessories" ? <Meta>One size</Meta>
-          : (<>
-              <Meta>Pick a size:</Meta>
-              {sizes.map((s) => (
-                <button key={s} type="button" aria-pressed={chosen === s} onClick={() => { setChosen(s); setHint(""); }}
-                  className={`rounded-md border px-2.5 py-0.5 text-sm ${chosen === s ? "border-brand-600 bg-brand-600 text-white dark:border-brand-400 dark:bg-brand-400 dark:text-neutral-950" : "border-stone-300 dark:border-neutral-700"}`}>
-                  {sizeLabel(category, s)}
-                </button>
-              ))}
-            </>)}
+    <article className="mx-auto max-w-xl">
+      <Button variant="ghost" className="mb-3" onClick={onBack}>
+        ← Back
+      </Button>
+      <Thumb item={item} className="mb-4 h-52 rounded-2xl text-xl" />
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold">{item.name}</h2>
+          <Meta>
+            {item.brand} · <span className="capitalize">{item.color}</span> · {item.category}
+          </Meta>
+        </div>
+        <div className="rounded-full bg-stone-100 px-3 py-1 text-base font-semibold dark:bg-neutral-800">
+          {item.price_text}
+        </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Button variant="ghost" onClick={onAsk}>Ask about this</Button>
-        <Button onClick={add} disabled={sizes.length === 0}>Add to cart</Button>
+      {item.aesthetic_tags.length > 0 && (
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {item.aesthetic_tags.map((t) => (
+            <span key={t} className="rounded-full border border-stone-200 px-2.5 py-0.5 text-xs dark:border-neutral-700">
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {item.why_it_suits_you && <p className="mt-3 text-sm">{item.why_it_suits_you}</p>}
+      {item.fit_note && (
+        <p className="mt-2 text-sm text-stone-600 dark:text-stone-300">
+          <span className="font-semibold">Fit note:</span> {item.fit_note}
+        </p>
+      )}
+      {item.styling_tip && (
+        <p className="mt-2 rounded-xl bg-stone-100 p-3 text-sm dark:bg-neutral-900">
+          <span className="font-semibold">How Aura would style it:</span> {item.styling_tip}
+        </p>
+      )}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button onClick={onSave}>♥ Save to Closet</Button>
+        <Button variant="ghost" onClick={onStyleAround}>
+          ★ Build outfit around this
+        </Button>
+        <Button variant="ghost" onClick={onAsk}>
+          Ask Aura about this
+        </Button>
+        {item.url && (item.image_source !== "ai_generated" || item.url_verified) ? (
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium hover:border-brand-600 dark:border-neutral-700"
+          >
+            {item.url_verified ? "Shop online ↗" : "Search online ↗"}
+          </a>
+        ) : item.image_source === "ai_generated" ? (
+          <span className="rounded-lg border border-amber-500/30 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
+            AI visualization (no direct product listing)
+          </span>
+        ) : null}
       </div>
-      {hint && <p role="alert" className="mt-2 text-sm text-red-700 dark:text-red-300">{hint}</p>}
     </article>
   );
 }

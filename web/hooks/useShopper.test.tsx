@@ -1,104 +1,154 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { FashionItem, StyleDNA } from "@/lib/types";
 import { useShopper } from "./useShopper";
 
 const enc = new TextEncoder();
 const sse = (event: string, data: unknown) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-const ui = { type: "show_products", filters: { use: "sports" }, product_id: null, product_ids: [3, 1], order_id: null };
-const none = { type: "none", filters: {}, product_id: null, product_ids: [], order_id: null };
-const shoe = (id: number) => ({ id, name: `Shoe ${id}`, brand: "Nike", price: 1000 + id, use_type: "sports", color: "black", rating: 4.5, description: "d", category: "shoes", sizes_in_stock: [9] });
 
-interface Call { url: string; body?: Record<string, unknown> }
+const sampleItem: FashionItem = {
+  id: "item_1",
+  name: "Relaxed Olive Linen Overshirt",
+  brand: "Uniqlo",
+  category: "tops",
+  price_text: "₹2,490",
+  color: "olive",
+  color_hex: "#556B2F",
+  aesthetic_tags: ["minimalist", "linen"],
+  fit_note: "Relaxed drape",
+  why_it_suits_you: "Great for warm undertones",
+  styling_tip: "Layer over cream tee",
+  url: "https://example.com/overshirt",
+  url_verified: true,
+  source_domain: "uniqlo.com",
+  match_score: 92,
+  match_reasons: ["Matches minimalist taste"],
+};
 
-/** A fake backend behind /api/*; `chat` is the text of the event stream (or a Response) for /api/chat/stream. */
-function install(chat: string | (() => Response)): Call[] {
+const emptyDna: StyleDNA = {
+  user_id: "u1",
+  sizes: {},
+  aesthetics: {},
+  liked_colors: [],
+  disliked_colors: [],
+  liked_brands: [],
+  disliked_brands: [],
+  saved_closet: [],
+  saved_outfits: [],
+  disliked_item_keys: [],
+  swipe_history: [],
+  facts: [],
+  declined: false,
+};
+
+const deckUi = { type: "swipe_deck", items: [sampleItem], outfit: null, focus_item: null, photo_mode: null };
+const noneUi = { type: "none", items: [], outfit: null, focus_item: null, photo_mode: null };
+
+interface Call {
+  url: string;
+  body?: Record<string, unknown>;
+}
+
+function install(chatStream: string | (() => Response)): Call[] {
   const calls: Call[] = [];
-  vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
-    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-    calls.push({ url, body });
-    const json = (d: unknown) => new Response(JSON.stringify(d), { headers: { "content-type": "application/json" } });
-    if (url === "/api/chat/stream") {
-      if (typeof chat !== "string") return chat();
-      return new Response(new ReadableStream({ start(c) { for (let i = 0; i < chat.length; i += 11) c.enqueue(enc.encode(chat.slice(i, i + 11))); c.close(); } }));
-    }
-    if (url.startsWith("/api/products?")) return json({ products: new URLSearchParams(url.split("?")[1]).get("ids")!.split(",").map((i) => shoe(Number(i))) });
-    if (url.startsWith("/api/products/")) return json(shoe(Number(url.split("/").pop())));
-    if (url.startsWith("/api/cart")) return json({ items: [], total: 0 });
-    if (url.startsWith("/api/profile")) return json({ size: null, facts: [], pending_estimate: null });
-    return new Response("{}", { status: 404 });
-  }));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      calls.push({ url, body });
+      const json = (d: unknown) => new Response(JSON.stringify(d), { headers: { "content-type": "application/json" } });
+      if (url === "/api/chat/stream") {
+        if (typeof chatStream !== "string") return chatStream();
+        return new Response(
+          new ReadableStream({
+            start(c) {
+              for (let i = 0; i < chatStream.length; i += 15) c.enqueue(enc.encode(chatStream.slice(i, i + 15)));
+              c.close();
+            },
+          }),
+        );
+      }
+      if (url.startsWith("/api/profile/sync")) return json(emptyDna);
+      if (url.startsWith("/api/profile")) return json(emptyDna);
+      if (url === "/api/swipe") {
+        return json({
+          style_dna: { ...emptyDna, saved_closet: [sampleItem] },
+          reaction: "Saved Relaxed Olive Linen Overshirt to your closet!",
+          stats: { liked: 1, passed: 0, closet: 1 },
+        });
+      }
+      return new Response("{}", { status: 404 });
+    }),
+  );
   return calls;
 }
 
-beforeEach(() => { sessionStorage.clear(); localStorage.clear(); });
+beforeEach(() => {
+  sessionStorage.clear();
+  localStorage.clear();
+});
 afterEach(() => vi.unstubAllGlobals());
 
-const full = sse("status", { state: "thinking" }) + sse("ui", { ui_action: ui, slots: { use: "sports", size: 9 } })
-  + sse("text", { delta: "Here are some " }) + sse("text", { delta: "options." })
-  + sse("done", { reply: "Here are some options.", slots: { use: "sports", size: 9 }, ui_action: ui });
+const fullStream =
+  sse("status", { state: "thinking" }) +
+  sse("ui", { ui_action: deckUi, style_dna: emptyDna }) +
+  sse("text", { delta: "Pulled fresh picks " }) +
+  sse("text", { delta: "into your Swipe Deck!" }) +
+  sse("done", {
+    reply: "Pulled fresh picks into your Swipe Deck!",
+    ui_action: deckUi,
+    style_dna: emptyDna,
+    tools_used: ["search_fashion_online"],
+  });
 
 describe("useShopper", () => {
-  it("runs a streamed turn: the products load as soon as the ui event arrives, then the reply lands", async () => {
-    const calls = install(full);
+  it("streams chat and loads Swipe Deck on ui event", async () => {
+    const calls = install(fullStream);
     const { result } = renderHook(() => useShopper());
     await waitFor(() => expect(result.current.ready).toBe(true));
 
-    await act(async () => { await result.current.send("sports shoes, size 9"); });
+    await act(async () => {
+      await result.current.send("find me olive linen overshirts");
+    });
 
-    expect(result.current.messages.map((m) => [m.role, m.text])).toEqual([
-      ["bot", expect.stringContaining("shopping buddy")], ["user", "sports shoes, size 9"], ["bot", "Here are some options."],
-    ]);
-    expect(result.current.panel.kind).toBe("grid");
-    expect(result.current.panel.kind === "grid" && result.current.panel.products.map((p) => p.id)).toEqual([3, 1]);
-    expect(result.current.slots).toMatchObject({ use: "sports", size: 9 });
-    expect(result.current.thinking).toBe(false);
-    // the grid was fetched once (from the ui event), not a second time when "done" arrived
-    expect(calls.filter((c) => c.url.startsWith("/api/products?")).length).toBe(1);
-    expect(calls.find((c) => c.url === "/api/chat/stream")!.body).toMatchObject({ message: "sports shoes, size 9", focus_product_id: null });
+    expect(result.current.panel.kind).toBe("swipe_deck");
+    expect(result.current.messages.at(-1)).toMatchObject({
+      role: "bot",
+      text: "Pulled fresh picks into your Swipe Deck!",
+    });
+    expect(calls.some((c) => c.url === "/api/chat/stream")).toBe(true);
   });
 
-  it("applies the action from `done` when the server sent no ui event, and tells the server which shoe is open", async () => {
-    const focus = { ...none, type: "focus_product", product_id: 5 };
-    const calls = install(sse("text", { delta: "Here's it." }) + sse("done", { reply: "Here's it.", slots: {}, ui_action: focus }));
+  it("saves liked swipes to Style DNA and localStorage", async () => {
+    install(fullStream);
     const { result } = renderHook(() => useShopper());
     await waitFor(() => expect(result.current.ready).toBe(true));
-    await act(async () => { await result.current.send("show me the second one"); });
-    expect(result.current.panel).toMatchObject({ kind: "detail", product: { id: 5 } });
 
-    const calls2 = install(sse("done", { reply: "ok", slots: {}, ui_action: none }));
-    await act(async () => { await result.current.send("what do you think of it?"); });
-    expect(calls2.find((c) => c.url === "/api/chat/stream")!.body).toMatchObject({ focus_product_id: 5 });
-    expect(calls.some((c) => c.url === "/api/products/5")).toBe(true);
+    await act(async () => {
+      const res = await result.current.swipe(sampleItem, "like");
+      expect(res?.stats.closet).toBe(1);
+    });
+
+    expect(result.current.styleDna?.saved_closet).toHaveLength(1);
+    expect(localStorage.getItem("shopper_style_dna_v1")).toContain("Relaxed Olive Linen Overshirt");
   });
 
-  it("shows the server's message on a rate limit and lets the shopper try again", async () => {
-    install(() => new Response(JSON.stringify({ detail: "Too many requests. Please slow down a little." }), { status: 429 }));
+  it("surfaces 429 rate-limit messages cleanly and recovers", async () => {
+    install(() => new Response(JSON.stringify({ detail: "Too many requests." }), { status: 429 }));
     const { result } = renderHook(() => useShopper());
     await waitFor(() => expect(result.current.ready).toBe(true));
-    await act(async () => { await result.current.send("hi"); });
+    await act(async () => {
+      await result.current.send("hi");
+    });
     expect(result.current.messages.at(-1)).toMatchObject({ role: "err", text: expect.stringContaining("Too many requests") });
-    expect(result.current.thinking).toBe(false);
 
-    install(sse("text", { delta: "Hi!" }) + sse("done", { reply: "Hi!", slots: {}, ui_action: none }));
-    await act(async () => { await result.current.send("hi again"); });
-    expect(result.current.messages.at(-1)).toMatchObject({ role: "bot", text: "Hi!" });
-  });
-
-  it("ignores empty messages and does nothing before ids are ready", async () => {
-    const calls = install(full);
-    const { result } = renderHook(() => useShopper());
-    await act(async () => { await result.current.send("   "); });
-    expect(calls.filter((c) => c.url === "/api/chat/stream")).toHaveLength(0);
-  });
-
-  it("goes back to the list the shopper was looking at", async () => {
-    install(full);
-    const { result } = renderHook(() => useShopper());
-    await waitFor(() => expect(result.current.ready).toBe(true));
-    await act(async () => { await result.current.send("sports shoes"); });
-    await act(async () => { await result.current.focusProduct(3); });
-    expect(result.current.panel.kind).toBe("detail");
-    await act(async () => { result.current.goBack(); });
-    await waitFor(() => expect(result.current.panel.kind).toBe("grid"));
+    install(
+      sse("text", { delta: "Hey!" }) +
+        sse("done", { reply: "Hey!", ui_action: noneUi, style_dna: emptyDna, tools_used: [] }),
+    );
+    await act(async () => {
+      await result.current.send("hi again");
+    });
+    expect(result.current.messages.at(-1)).toMatchObject({ role: "bot", text: "Hey!" });
   });
 });

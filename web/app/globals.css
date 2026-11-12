@@ -1,14 +1,19 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-brand-400: #4fae8c;
-  --color-brand-500: #2f7a62;
-  --color-brand-600: #1f5f4a;
-  --color-brand-700: #184a3a;
+  --color-brand-400: #6ba58a;
+  --color-brand-500: #4fae8c;
+  --color-brand-600: #2f7a62;
+  --color-brand-700: #1f5f4a;
 }
 
 html, body { height: 100%; }
-body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background-color: #0b0d0c;
+  color: #f4f3ef;
+}
 
 /* Respect people who ask for less motion. */
 @media (prefers-reduced-motion: reduce) {
