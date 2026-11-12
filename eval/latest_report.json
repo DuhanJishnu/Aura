@@ -1,0 +1,103 @@
+{
+  "total": 8,
+  "passed": 8,
+  "pass_rate": 1.0,
+  "avg_latency_s": 0.001,
+  "cases": [
+    {
+      "id": "sc_online_discovery",
+      "system": "adk_stylist_offline",
+      "passed": true,
+      "scores": {
+        "url_integrity": 1.0,
+        "tool_accuracy": 1.0,
+        "ui_accuracy": 1.0
+      },
+      "notes": [],
+      "latency_s": 0.002
+    },
+    {
+      "id": "sc_outfit_occasion",
+      "system": "adk_stylist_offline",
+      "passed": true,
+      "scores": {
+        "url_integrity": 1.0,
+        "tool_accuracy": 1.0,
+        "ui_accuracy": 1.0,
+        "styling_depth": 1.0
+      },
+      "notes": [],
+      "latency_s": 0.001
+    },
+    {
+      "id": "sc_swipe_adaptation",
+      "system": "adk_stylist_offline",
+      "passed": true,
+      "scores": {
+        "url_integrity": 1.0,
+        "tool_accuracy": 1.0,
+        "ui_accuracy": 1.0,
+        "swipe_adaptation": 1.0
+      },
+      "notes": [],
+      "latency_s": 0.001
+    },
+    {
+      "id": "sc_offtopic_circle_back",
+      "system": "adk_stylist_offline",
+      "passed": true,
+      "scores": {
+        "url_integrity": 1.0,
+        "friend_circle_back": 1.0
+      },
+      "notes": [],
+      "latency_s": 0.0
+    },
+    {
+      "id": "sc_stress_friend_circle_back",
+      "system": "adk_stylist_offline",
+      "passed": true,
+      "scores": {
+        "url_integrity": 1.0,
+        "friend_circle_back": 1.0
+      },
+      "notes": [],
+      "latency_s": 0.0
+    },
+    {
+      "id": "sc_boundary_no_means_no",
+      "system": "adk_stylist_offline",
+      "passed": true,
+      "scores": {
+        "url_integrity": 1.0,
+        "boundary_respected": 1.0
+      },
+      "notes": [],
+      "latency_s": 0.0
+    },
+    {
+      "id": "sc_complexion_palette",
+      "system": "adk_stylist_offline",
+      "passed": true,
+      "scores": {
+        "url_integrity": 1.0,
+        "tool_accuracy": 1.0,
+        "complexion_saved": 1.0
+      },
+      "notes": [],
+      "latency_s": 0.0
+    },
+    {
+      "id": "sc_closet_memory_and_forget",
+      "system": "adk_stylist_offline",
+      "passed": true,
+      "scores": {
+        "url_integrity": 1.0,
+        "tool_accuracy": 1.0,
+        "memory_lifecycle": 1.0
+      },
+      "notes": [],
+      "latency_s": 0.001
+    }
+  ]
+}

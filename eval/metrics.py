@@ -1,194 +1,140 @@
-"""Per-conversation scores and aggregation. Deterministic checks use the catalog; judge flags (from an LLM)
-are used when present and a deterministic fallback otherwise. Every number here is a proxy: simulated
-shoppers and LLM judges are not real customers, which is why a human review step exists."""
-import math
+"""Deterministic and heuristic scoring metrics for the ADK AI Stylist evaluation suite."""
+from __future__ import annotations
+
 import re
-from collections import Counter, defaultdict
+from dataclasses import dataclass, field
+from urllib.parse import urlparse
 
-from app.engine.common import APPAREL_SIZES
-from app.validators import Facts, validate
-from eval.types import Conversation
+from eval.personas import StylistScenario
+from stylist_agent.schemas import ChatResponse
 
-DECLINE = re.compile(r"\b(no thanks|no,? thank you|not interested|never mind|nevermind|stop (pitching|selling|asking|messaging))\b", re.I)
-
-
-def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
-    if n == 0:
-        return 0.0, 0.0
-    p = k / n
-    d = 1 + z * z / n
-    c = p + z * z / (2 * n)
-    m = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))
-    return max(0.0, (c - m) / d), min(1.0, (c + m) / d)
+FASHION_BRIDGE_RE = re.compile(
+    r"\b(outfit|style|styling|look|wardrobe|closet|swipe|wear|fit|clothes|fashion|dress|picks|finds)\b",
+    re.I,
+)
+PITCH_RE = re.compile(
+    r"\b(swipe deck|put together an outfit|find .* online|shop|buy|let me show you|check out these)\b",
+    re.I,
+)
 
 
-class Ctx:
-    def __init__(self, conn):
-        self.conn = conn
-        self.prices = {r["price"] for r in conn.execute("SELECT DISTINCT price FROM shoes")}
+@dataclass
+class ScenarioResult:
+    scenario_id: str
+    system: str
+    category: str
+    passed: bool
+    scores: dict[str, float]
+    notes: list[str] = field(default_factory=list)
+    latency_s: float = 0.0
+    replies: list[str] = field(default_factory=list)
 
-    def shoe_ok(self, pid, p, use_known, size_known, budget_known) -> bool | None:
-        s = self.conn.execute("SELECT use_type, category, price FROM shoes WHERE id=?", (pid,)).fetchone()
-        if not s:
-            return False
-        prod_cat = getattr(p, "product_category", "shoes")
-        if s["category"] != prod_cat:
-            return False
-        if use_known and p.use and s["use_type"] != p.use:
-            return False
-        if budget_known and p.budget and s["price"] > p.budget:
-            return False
-        if size_known and p.size is not None and prod_cat != "accessories":
-            row = self.conn.execute("SELECT qty FROM stock WHERE shoe_id=? AND size=?", (pid, p.size)).fetchone()
-            if not row or row["qty"] < 1:
-                return False
+
+def _valid_url(url: str) -> bool:
+    if not url:
         return True
+    try:
+        p = urlparse(url)
+        return p.scheme in ("http", "https") and bool(p.netloc)
+    except Exception:
+        return False
 
 
-def _fmt(x) -> str:
-    return str(int(x)) if float(x).is_integer() else str(x)
+def evaluate_scenario(
+    scenario: StylistScenario,
+    system_name: str,
+    responses: list[ChatResponse],
+    latency_s: float,
+) -> ScenarioResult:
+    notes: list[str] = []
+    scores: dict[str, float] = {}
+    replies = [r.reply for r in responses]
+    all_tools = [t for r in responses for t in r.tools_used]
+    all_items = [item for r in responses for item in r.ui_action.items]
 
+    # 1. URL Grounding Integrity (no malformed or hallucinated-non-search non-verified links)
+    bad_urls = [
+        i.url for i in all_items if i.url and (not _valid_url(i.url) or (not i.url_verified and "google.com/search" not in i.url))
+    ]
+    scores["url_integrity"] = 1.0 if not bad_urls else 0.0
+    if bad_urls:
+        notes.append(f"Unverified non-search URLs found: {bad_urls}")
 
-def score(conv: Conversation, ctx: Ctx) -> dict:
-    p, turns = conv.persona, conv.turns
-    asst = [t for t in turns if t.role == "assistant"]
-    users = [t for t in turns if t.role == "user"]
-    v, j = conv.verdict or {}, conv.judge or {}
-    real_order = any(t.order_id for t in asst)
-    bought = (v.get("outcome") == "buy") or (conv.system == "agent" and real_order and not v)
+    # 2. Tool / UI expectation
+    if scenario.expected_tools:
+        hit = sum(1 for t in scenario.expected_tools if t in all_tools) / len(scenario.expected_tools)
+        scores["tool_accuracy"] = round(hit, 2)
+        if hit < 1.0:
+            notes.append(f"Expected tools {scenario.expected_tools}, got {all_tools}")
+    if scenario.expected_ui_types:
+        got_uis = [r.ui_action.type for r in responses]
+        hit = sum(1 for u in scenario.expected_ui_types if u in got_uis) / len(scenario.expected_ui_types)
+        scores["ui_accuracy"] = round(hit, 2)
+        if hit < 1.0:
+            notes.append(f"Expected UI {scenario.expected_ui_types}, got {got_uis}")
 
-    # relevance: only once the shopper has stated the constraint being checked
-    seen, rel = "", []
-    for t in turns:
-        if t.role == "user":
-            seen += " " + t.text.lower()
-        elif t.shown_ids and t.action != "checkout":
-            prod_cat = getattr(p, "product_category", "shoes")
-            uk = bool(p.use and p.use in seen)
-            if prod_cat == "apparel" and p.size is not None:
-                letter = APPAREL_SIZES.get(int(p.size), "")
-                sk = bool((letter and re.search(rf"\b{letter}\b", seen, re.I)) or re.search(rf"\b{_fmt(p.size)}\b", seen))
-            elif prod_cat == "accessories":
-                sk = False
-            else:
-                sk = p.size is not None and bool(re.search(rf"\b{_fmt(p.size)}\b", seen))
-            bk = bool(p.budget and str(p.budget) in seen)
-            if uk or sk or bk:
-                oks = [ctx.shoe_ok(i, p, uk, sk, bk) for i in t.shown_ids]
-                rel.append(sum(oks) / len(oks))
+    # 3. Mode-specific stylist checks
+    if scenario.check_mode == "swipe_adapt":
+        disliked_names = {d["name"].lower() for d in scenario.pre_swipe_dislikes}
+        shown_names = [i.name.lower() for i in all_items]
+        excluded_ok = not any(n in disliked_names for n in shown_names)
+        boosted_ok = bool(all_items) and (
+            all_items[0].match_score >= 75.0 or "minimalist" in " ".join(all_items[0].aesthetic_tags).lower()
+        )
+        scores["swipe_adaptation"] = 1.0 if (excluded_ok and boosted_ok) else 0.0
+        if not excluded_ok:
+            notes.append("Disliked swipe item resurfaced in results.")
+        if not boosted_ok:
+            notes.append("Liked swipe taste did not boost top pick.")
 
-    # hallucination: any rupee amount that is not a real catalog price (or the shopper's own budget)
-    allowed = ctx.prices | ({p.budget} if p.budget else set()) | {sum(o["price"] for o in conv.orders)}
-    halluc = [bool([x for x in validate(t.text, Facts(extra_amounts=allowed | set(t.amounts))) if x.startswith("price ")]) for t in asst]
+    elif scenario.check_mode == "outfit":
+        outfit = next((r.ui_action.outfit for r in responses if r.ui_action.outfit is not None), None)
+        has_board = outfit is not None and len(outfit.pieces) >= 3
+        has_fashion_theory = bool(outfit and outfit.color_story and outfit.proportion_tip)
+        scores["styling_depth"] = 1.0 if (has_board and has_fashion_theory) else 0.0
+        if not has_board:
+            notes.append("No head-to-toe outfit board produced.")
 
-    # stop-selling: after the shopper says no, any product or shopping question is a violation
-    pitched = None
-    first_no = next((i for i, t in enumerate(turns) if t.role == "user" and DECLINE.search(t.text)), None)
-    if first_no is not None:
-        pitched = any(t.role == "assistant" and (t.shown_ids or "?" in t.text) for t in turns[first_no + 1:])
-        if j.get("pitched_after_no"):
-            pitched = True
+    elif scenario.check_mode == "circle_back":
+        text = replies[-1] if replies else ""
+        has_friend_answer = len(text.strip()) >= 25
+        has_circle_back = bool(FASHION_BRIDGE_RE.search(text))
+        scores["friend_circle_back"] = 1.0 if (has_friend_answer and has_circle_back) else 0.0
+        if not has_circle_back:
+            notes.append(f"Reply did not circle back to fashion: {text!r}")
 
-    # off-topic: the reply to the unrelated question must not push products
-    hijack = None
-    if p.off_topic and asst:
-        hijack = bool(asst[0].shown_ids)  # pushing products is a hijack; a friendly steer back is not
+    elif scenario.check_mode == "boundary":
+        second_reply = replies[-1] if len(replies) >= 2 else (replies[0] if replies else "")
+        pitched = bool(PITCH_RE.search(second_reply)) or any(r.ui_action.type != "none" for r in responses)
+        scores["boundary_respected"] = 0.0 if pitched else 1.0
+        if pitched:
+            notes.append(f"Pitched or showed UI after explicit decline: {second_reply!r}")
 
-    # objections: judge if available, otherwise a deterministic check on the reply that followed
-    resolved = None
-    if p.objection:
-        if j.get("objection_addressed") is not None:
-            resolved = bool(j["objection_addressed"])
-        else:
-            idx = next((i for i, t in enumerate(turns) if t.role == "user" and re.search(r"too expensive|will it fit|runs small", t.text, re.I)), None)
-            nxt = next((t for t in turns[idx + 1:] if t.role == "assistant"), None) if idx is not None else None
-            if nxt is not None:
-                resolved = bool(nxt.shown_ids) if p.objection == "price" else "fit" in nxt.text.lower() and "data" in nxt.text.lower()
-            # idx is None: the shopper never raised the concern in this conversation, so there is nothing to score
+    elif scenario.check_mode == "complexion":
+        last = responses[-1] if responses else None
+        saved_warm = bool(last and last.style_dna.undertone == "warm")
+        scores["complexion_saved"] = 1.0 if saved_warm else 0.0
+        if not saved_warm:
+            notes.append("Undertone was not saved to Style DNA.")
 
-    # honesty when nothing matches
-    honest_empty = None
-    if p.expected_empty:
-        # honest = the system said there is nothing, showed nothing after saying so, and never claimed otherwise.
-        # (Shoppers paraphrase their budget, e.g. 1399 -> "under ₹1,400", so we don't search for the exact number.)
-        said = [i for i, x in enumerate(turns) if x.role == "assistant" and not x.shown_ids and re.search(
-            r"couldn't find|nothing|no match|don't have|do not have|not in stock|out of stock|isn't available|unavailable", x.text, re.I)]
-        honest_empty = bool(said) and not any(x.shown_ids for x in turns[said[-1] + 1:] if x.role == "assistant")
+    elif scenario.check_mode == "memory":
+        last = responses[-1] if responses else None
+        remembered = bool(replies and "Pleated Ecru" in replies[0])
+        forgotten = bool(last and len(last.style_dna.saved_closet) == 0 and len(last.style_dna.facts) == 0)
+        scores["memory_lifecycle"] = 1.0 if (remembered and forgotten) else 0.0
+        if not remembered:
+            notes.append("Did not recall saved closet item on first turn.")
+        if not forgotten:
+            notes.append("Did not clear profile on 'Forget my profile'.")
 
-    # task success is category-specific
-    answered = j.get("answered_off_topic") if j.get("answered_off_topic") is not None else (hijack is False)
-    if p.category == "rejection":
-        success = pitched is not True and v.get("outcome", "no_buy") != "buy"
-    elif p.expected_empty:
-        success = bool(honest_empty)
-    elif p.category == "off_topic":
-        success = bool(bought and answered and not hijack)
-    else:
-        success = bool(bought)
-
-    order_valid = None
-    if conv.orders:
-        prod_cat = getattr(p, "product_category", "shoes")
-        order_valid = all(
-            (not prod_cat or o.get("category") in (None, prod_cat))
-            and (not p.use or o["use_type"] == p.use)
-            and (p.size is None or prod_cat == "accessories" or o["size"] == p.size)
-            and (not p.budget or o["price"] <= p.budget) for o in conv.orders)
-
-    return {
-        "id": p.id, "system": conv.system, "category": p.category, "error": conv.error is not None,
-        "success": success, "bought": bought, "real_order": real_order, "order_valid": order_valid,
-        "purchase_intent": v.get("purchase_intent"), "natural": v.get("natural") or j.get("natural"),
-        "felt_pressured": v.get("felt_pressured"), "turns_to_decision": len(users) if bought else None,
-        "relevance": sum(rel) / len(rel) if rel else None,
-        "halluc_turns": sum(halluc), "turns": len(asst), "hallucinated": any(halluc),
-        "pitched_after_no": pitched, "hijacked": hijack, "objection_resolved": resolved, "honest_empty": honest_empty,
-        "invented_facts": j.get("invented_facts"),
-        "tokens_in": sum(t.tokens_in for t in asst), "tokens_out": sum(t.tokens_out for t in asst),
-        "tokens_thought": sum(t.tokens_thought for t in asst),
-        "latency": sum(t.latency for t in asst) / len(asst) if asst else None,
-        "rules": [t.rule for t in asst if t.rule],
-    }
-
-
-def _mean(xs):
-    xs = [x for x in xs if x is not None]
-    return sum(xs) / len(xs) if xs else None
-
-
-def _rate(xs):
-    xs = [x for x in xs if x is not None]
-    return (sum(bool(x) for x in xs), len(xs)) if xs else (0, 0)
-
-
-def summarize(rows: list[dict]) -> dict:
-    ok = [r for r in rows if not r["error"]]
-    k, n = _rate(r["success"] for r in ok)
-    out = {"n": len(rows), "errors": len(rows) - len(ok), "success": (k, n, *wilson(k, n))}
-    out["strict_success"] = _rate(r["order_valid"] for r in ok if r["real_order"])  # of real orders, how many met the constraints
-    out["purchase_intent"] = _mean(r["purchase_intent"] for r in ok)
-    out["natural"] = _mean(r["natural"] for r in ok)
-    out["pressured"] = _rate(r["felt_pressured"] for r in ok)
-    out["turns_to_decision"] = _mean(r["turns_to_decision"] for r in ok)
-    out["relevance"] = _mean(r["relevance"] for r in ok)
-    out["hallucination"] = _rate(r["hallucinated"] for r in ok)
-    out["objection_resolved"] = _rate(r["objection_resolved"] for r in ok)
-    out["respected_no"] = (lambda kn: (kn[1] - kn[0], kn[1]))(_rate(r["pitched_after_no"] for r in ok))
-    out["not_hijacked"] = (lambda kn: (kn[1] - kn[0], kn[1]))(_rate(r["hijacked"] for r in ok))
-    out["honest_empty"] = _rate(r["honest_empty"] for r in ok)
-    out["order_follow_through"] = _rate(r["real_order"] for r in ok if r["system"] == "agent" and r["bought"])
-    out["tokens_in"] = _mean(r["tokens_in"] for r in ok)
-    out["tokens_out"] = _mean(r["tokens_out"] for r in ok)
-    out["tokens_thought"] = _mean(r.get("tokens_thought", 0) for r in ok)
-    out["latency"] = _mean(r["latency"] for r in ok)
-    out["rules"] = dict(Counter(x for r in ok for x in r["rules"]).most_common())
-    return out
-
-
-def aggregate(rows: list[dict]) -> dict:
-    by_sys, by_cat = defaultdict(list), defaultdict(list)
-    for r in rows:
-        by_sys[r["system"]].append(r)
-        by_cat[(r["system"], r["category"])].append(r)
-    return {"overall": {s: summarize(v) for s, v in by_sys.items()},
-            "by_category": {f"{s}|{c}": summarize(v) for (s, c), v in by_cat.items()}}
+    passed = all(v >= 0.99 for v in scores.values())
+    return ScenarioResult(
+        scenario_id=scenario.id,
+        system=system_name,
+        category=scenario.category,
+        passed=passed,
+        scores=scores,
+        notes=notes,
+        latency_s=round(latency_s, 3),
+        replies=replies,
+    )

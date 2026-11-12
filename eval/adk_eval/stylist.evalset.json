@@ -1,0 +1,116 @@
+{
+  "eval_set_id": "aura_stylist_core_v1",
+  "name": "Aura AI Stylist Core Evaluation Set",
+  "description": "Validates Google ADK tool trajectories (online search, outfit curation, preference saving, boundary respect) and conversational fashion circle-back.",
+  "eval_cases": [
+    {
+      "eval_id": "case_online_sneaker_search",
+      "conversation": [
+        {
+          "invocation_id": "inv_1",
+          "user_content": {
+            "role": "user",
+            "parts": [{ "text": "Find clean white retro casual sneakers online under 6000 rupees" }]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [{ "text": "I've pulled retro white sneaker picks into your Swipe Deck — swipe right to save your favorites!" }]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "search_fashion_online",
+                "args": {
+                  "query": "white retro casual sneakers",
+                  "category": "shoes",
+                  "max_budget_inr": 6000
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "case_outfit_curation",
+      "conversation": [
+        {
+          "invocation_id": "inv_2",
+          "user_content": {
+            "role": "user",
+            "parts": [{ "text": "Build me a smart-casual rooftop date night outfit" }]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [{ "text": "Put together a balanced smart-casual look on your Outfit Board with warm neutrals and clean proportions." }]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "curate_outfit",
+                "args": {
+                  "occasion": "rooftop date night",
+                  "vibe": "smart-casual"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "case_preference_memory",
+      "conversation": [
+        {
+          "invocation_id": "inv_3",
+          "user_content": {
+            "role": "user",
+            "parts": [{ "text": "Remember I wear UK 9 shoes, love minimalist linen, and hate neon colors" }]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [{ "text": "Saved UK 9, minimalist linen aesthetic, and no neon to your Style DNA!" }]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "record_style_preference",
+                "args": {
+                  "shoe_size": "9",
+                  "aesthetic": "minimalist linen",
+                  "disliked_color": "neon"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "case_boundary_no_means_no",
+      "conversation": [
+        {
+          "invocation_id": "inv_4",
+          "user_content": {
+            "role": "user",
+            "parts": [{ "text": "No thanks, I am not shopping right now, please stop suggesting items." }]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [{ "text": "Totally respect that — zero pressure! I'm always here just to chat whenever you like." }]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "set_shopping_boundary",
+                "args": {
+                  "declined": true
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

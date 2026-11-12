@@ -1,141 +1,71 @@
-"""The three systems under comparison, behind one interface: respond(message) -> assistant Turn.
+"""Evaluation systems: Plain baseline vs Google ADK AI Stylist (live or offline)."""
+from __future__ import annotations
 
-A  plain     a good prompt, no catalog access, no tools          (the "just use an LLM" baseline)
-B  rag       LLM + catalog retrieval + running memory of needs   (no decision policy, no validator)
-C  agent     this project: rule-table decisions + grounded retrieval + validator + cart"""
-import json
-import re
-import time
+from typing import Protocol
 
-from pydantic import BaseModel
-
-from app.catalog.search import search_shoes
-from app.engine.engine import handle
-from app.engine.state import Session
-from eval.types import Turn
-
-PLAIN_SYSTEM = """You are a friendly, honest sales assistant for shoppers in India (selling shoes, clothes and accessories). Talk like a helpful
-friend, not a form: ask one question at a time, find out what they are for (sports, office or casual), who
-they're for and the size, then recommend. Give honest opinions including trade-offs. Handle concerns about price,
-fit or quality with evidence or honest uncertainty. If the shopper says no or isn't interested, back off politely
-and don't keep pitching. Answer off-topic questions briefly. You cannot see live inventory or exact prices, so
-never invent specific prices or stock levels. Keep replies to 1-3 sentences."""
-
-RAG_SYSTEM = """You are a friendly, honest sales assistant for shoppers in India (selling shoes, clothes and accessories). Use ONLY the products
-listed under 'Catalog results' for any product, price, rating or stock claim, and cite each product you recommend
-as [#id]. Ask one question at a time when you need the use (sports, office, casual) or size. Give honest opinions
-including trade-offs. If the shopper says no, back off politely. You cannot place orders: when the shopper decides,
-confirm what they chose. Keep replies to 1-3 sentences. Never invent products or prices."""
-
-NEEDS_SYSTEM = "Extract the shopper's needs from the conversation as JSON. Use null for anything not stated."
+from app import config
+from app.service import StylistService
+from stylist_agent.memory import PreferenceStore, apply_swipe
+from stylist_agent.offline import OfflineStylistService
+from stylist_agent.schemas import ChatRequest, ChatResponse, FashionItem, StyleDNA
 
 
-class Needs(BaseModel):
-    category: str | None = None   # shoes | apparel | accessories
-    use: str | None = None        # sports | office | casual
-    size: float | None = None
-    budget: int | None = None
-    color: str | None = None
+class EvalSystem(Protocol):
+    name: str
+
+    async def setup_swipes(self, likes: list[dict], dislikes: list[dict]) -> None: ...
+    async def turn(self, message: str) -> ChatResponse: ...
 
 
-class _Base:
-    name = "base"
+class AdkStylistEvalSystem:
+    def __init__(self, user_id: str, offline: bool = False):
+        self.name = "adk_stylist_offline" if offline else "adk_stylist"
+        self.user_id = user_id
+        self.session_id = f"eval_{user_id}"
+        self.store = PreferenceStore(persist=False)
+        self.service: StylistService = (
+            OfflineStylistService(store=self.store) if offline else StylistService(store=self.store)
+        )
 
-    def __init__(self, conn, llm, conv_id: str):
-        self.conn, self.llm, self.conv_id = conn, llm, conv_id
+    async def setup_swipes(self, likes: list[dict], dislikes: list[dict]) -> None:
+        dna = self.store.get(self.user_id)
+        for raw in likes:
+            apply_swipe(dna, FashionItem.model_validate(raw), "like")
+        for raw in dislikes:
+            apply_swipe(dna, FashionItem.model_validate(raw), "dislike")
+        self.store.save(dna)
 
-    def _usage(self) -> tuple[int, int, int]:
-        u = getattr(self.llm, "usage", None) or {}
-        return u.get("in", 0), u.get("out", 0), u.get("thought", 0)
-
-    def _timed(self, fn) -> Turn:
-        i0, o0, h0 = self._usage()
-        t0 = time.perf_counter()
-        turn = fn()
-        turn.latency = time.perf_counter() - t0
-        i1, o1, h1 = self._usage()
-        turn.tokens_in, turn.tokens_out, turn.tokens_thought = i1 - i0, o1 - o0, h1 - h0
-        return turn
-
-    def respond(self, message: str) -> Turn:
-        return self._timed(lambda: self._respond(message))
-
-
-class AgentSystem(_Base):
-    name = "agent"
-
-    def __init__(self, conn, llm, conv_id):
-        super().__init__(conn, llm, conv_id)
-        self.session = Session(user_id=conv_id)
-
-    def _respond(self, message: str) -> Turn:
-        r = handle(self.session, message, self.llm, self.conn)
-        ui = r.ui_action
-        shown = list(ui.product_ids) or ([ui.product_id] if ui.product_id else [])
-        ceiling = ui.filters.get("max_price")
-        return Turn("assistant", r.reply, shown, ui.type, (r.policy or {}).get("rule"), ui.order_id,
-                    amounts=[int(ceiling)] if ceiling else [])
+    async def turn(self, message: str) -> ChatResponse:
+        return await self.service.chat(
+            ChatRequest(session_id=self.session_id, user_id=self.user_id, message=message)
+        )
 
 
-class PlainSystem(_Base):
-    name = "plain"
+class PlainPromptBaseline:
+    """No-tools, no-search, no-swipe-memory baseline for comparing against ADK Stylist."""
 
-    def __init__(self, conn, llm, conv_id):
-        super().__init__(conn, llm, conv_id)
+    name = "plain_baseline"
+
+    def __init__(self, user_id: str, offline: bool = False):
+        self.user_id = user_id
+        self.offline = offline
         self.history: list[str] = []
 
-    def _respond(self, message: str) -> Turn:
-        self.history.append(f"Shopper: {message}")
-        prompt = "Conversation so far:\n" + "\n".join(self.history) + "\nReply as the assistant."
-        text = (self.llm._generate(prompt, PLAIN_SYSTEM, 0.7).text or "").strip()
-        self.history.append(f"Assistant: {text}")
-        return Turn("assistant", text)
+    async def setup_swipes(self, likes: list[dict], dislikes: list[dict]) -> None:
+        return None  # plain prompt has no swipe memory
 
+    async def turn(self, message: str) -> ChatResponse:
+        self.history.append(f"User: {message}")
+        if self.offline:
+            reply = "Here is a general response to your question."
+        else:
+            from google import genai
 
-class RagSystem(_Base):
-    name = "rag"
-
-    def __init__(self, conn, llm, conv_id):
-        super().__init__(conn, llm, conv_id)
-        self.history: list[str] = []
-        self.memory = Needs()
-
-    def _needs(self) -> Needs:
-        prompt = "Conversation:\n" + "\n".join(self.history)
-        resp = self.llm._generate(prompt, NEEDS_SYSTEM, 0.0, schema=Needs)
-        parsed = getattr(resp, "parsed", None)
-        return parsed if isinstance(parsed, Needs) else Needs.model_validate_json(resp.text)
-
-    def _retrieve(self) -> list[dict]:
-        m = self.memory
-        cat = m.category or "shoes"
-        if m.use in ("sports", "office", "casual"):
-            return search_shoes(self.conn, use=m.use, size=m.size, max_price=m.budget, color=m.color, category=cat, limit=5)
-        rows = []
-        for use in ("sports", "office", "casual"):
-            rows += search_shoes(self.conn, use=use, category=cat, limit=2)
-        return rows
-
-    def _respond(self, message: str) -> Turn:
-        self.history.append(f"Shopper: {message}")
-        try:
-            new = self._needs()
-            for k in ("category", "use", "size", "budget", "color"):
-                if getattr(new, k) is not None:
-                    setattr(self.memory, k, getattr(new, k))
-        except Exception:
-            pass  # memory update is best-effort, like retrieval
-        rows = self._retrieve()
-        catalog = [{"id": r["id"], "name": r["name"], "price": r["price"], "color": r["color"],
-                    "use": r["use_type"], "rating": r["rating"]} for r in rows]
-        prompt = (f"Known needs: {json.dumps(self.memory.model_dump())}\nCatalog results: {json.dumps(catalog)}\n"
-                  "Conversation so far:\n" + "\n".join(self.history) + "\nReply as the assistant.")
-        text = (self.llm._generate(prompt, RAG_SYSTEM, 0.7).text or "").strip()
-        valid = {r["id"] for r in rows}
-        cited = [int(i) for i in dict.fromkeys(re.findall(r"\[#(\d+)\]", text)) if int(i) in valid]
-        text = re.sub(r"\s*\[#\d+\]", "", text).strip()
-        self.history.append(f"Assistant: {text}")
-        return Turn("assistant", text, cited, "cited" if cited else "")
-
-
-SYSTEMS = {"agent": AgentSystem, "plain": PlainSystem, "rag": RagSystem}
+            client = genai.Client(api_key=config.GEMINI_API_KEY)
+            resp = client.models.generate_content(
+                model=config.GEMINI_MODEL,
+                contents="\n".join(self.history),
+            )
+            reply = (resp.text or "").strip()
+        self.history.append(f"Assistant: {reply}")
+        return ChatResponse(reply=reply, style_dna=StyleDNA(user_id=self.user_id))
