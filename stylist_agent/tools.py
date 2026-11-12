@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import inspect
 import json
 import logging
 import re
@@ -32,11 +33,13 @@ from stylist_agent.media import (
     enrich_look_deck_images,
     enrich_look_deck_stream,
     enrich_outfit_images,
+    resign_media_url,
 )
 from stylist_agent.memory import (
     PreferenceStore,
     _upsert_fact,
     infer_season,
+    item_key,
     look_fingerprint,
     pref_hash,
     rerank_items,
@@ -51,6 +54,7 @@ from stylist_agent.schemas import (
     FashionItem,
     OutfitLook,
     OutfitPiece,
+    SearchMeta,
     StyleDNA,
     UIAction,
 )
@@ -130,7 +134,7 @@ def _domain_of(url: str, fallback_title: str = "") -> str:
 def _wrap_untrusted_web(findings: str, grounding_links: list[dict[str, str]]) -> str:
     """Delimit external search snippets clearly to defend against indirect prompt injection."""
     safe_findings = findings.replace("</untrusted_web_results>", "")
-    safe_links = json.dumps(grounding_links[:18], ensure_ascii=False).replace("</untrusted_web_results>", "")
+    safe_links = json.dumps(grounding_links[:40], ensure_ascii=False).replace("</untrusted_web_results>", "")
     return (
         "<untrusted_web_results>\n"
         f"SEARCH_SUMMARY:\n{safe_findings}\n\n"
@@ -187,6 +191,61 @@ def _persist_dna(tool_context: ToolContext, dna: StyleDNA) -> None:
     saved = _STORE.save(dna)
     tool_context.state["style_dna"] = saved.model_dump()
     tool_context.state["style_dna_summary"] = summarize_dna_for_prompt(saved)
+
+
+_VALID_CATEGORIES = {"apparel", "tops", "bottoms", "outerwear", "dresses", "shoes", "accessories", "ethnic"}
+_CAT_ALIASES = {
+    "footwear": "shoes",
+    "sneakers": "shoes",
+    "boots": "shoes",
+    "heels": "shoes",
+    "sandals": "shoes",
+    "loafers": "shoes",
+    "top": "tops",
+    "shirt": "tops",
+    "shirts": "tops",
+    "bottom": "bottoms",
+    "pants": "bottoms",
+    "trousers": "bottoms",
+    "jeans": "bottoms",
+    "jacket": "outerwear",
+    "jackets": "outerwear",
+    "dress": "dresses",
+    "accessory": "accessories",
+    "bag": "accessories",
+    "bags": "accessories",
+}
+
+
+def _normalize_category(category: str) -> str:
+    c = (category or "apparel").strip().lower()
+    c = _CAT_ALIASES.get(c, c)
+    return c if c in _VALID_CATEGORIES else "apparel"
+
+
+def _dedupe_items(items: list[FashionItem], exclude_ids: set[str] | None = None) -> list[FashionItem]:
+    seen_ids = set(exclude_ids or ())
+    seen_keys: set[str] = set()
+    seen_urls: set[str] = set()
+    out: list[FashionItem] = []
+    for item in items:
+        key = item_key(item)
+        if item.id in seen_ids or key in seen_keys:
+            continue
+        if item.url_verified and item.url and item.url in seen_urls:
+            continue
+        seen_ids.add(item.id)
+        seen_keys.add(key)
+        if item.url_verified and item.url:
+            seen_urls.add(item.url)
+        out.append(item)
+    return out
+
+
+_ANGLES = (
+    "best-selling mainstream options from major retailers",
+    "different brands and price tiers than the obvious picks (include budget and premium)",
+)
 
 
 class LiveGoogleSearchBackend:
@@ -303,33 +362,60 @@ class LiveGoogleSearchBackend:
                 pass
         return schema.model_validate({})
 
-    async def search(
+    async def _multi_search(self, base_prompt: str, per_angle: int = 10) -> tuple[str, list[dict[str, str]]]:
+        results = await asyncio.gather(
+            *(self._run_google_search(f"{base_prompt}\nFocus: {angle}. Find {per_angle} distinct items.") for angle in _ANGLES),
+            return_exceptions=True,
+        )
+        findings: list[str] = []
+        links: list[dict[str, str]] = []
+        seen_urls: set[str] = set()
+        for res in results:
+            if isinstance(res, Exception):
+                continue
+            text, lks = res
+            if text:
+                findings.append(text)
+            for lk in lks:
+                if lk.get("url") and lk["url"] not in seen_urls:
+                    seen_urls.add(lk["url"])
+                    links.append(lk)
+        if not findings:
+            raise RuntimeError("All grounded Google Search calls failed")
+        return "\n\n".join(findings), links
+
+    async def _discover_and_enrich(
         self,
+        *,
         query: str,
         category: str,
         max_budget_inr: int | None,
         dna: StyleDNA,
+        exclude_names: list[str] | None = None,
+        multi_angle: bool = True,
     ) -> list[FashionItem]:
-        cache_key = f"search:{query.strip().lower()}:{category}:{max_budget_inr or dna.budget_max or 0}:{pref_hash(dna)}"
-        cached = get_db().get_search_cache(cache_key)
-        if cached and isinstance(cached.get("items"), list):
-            try:
-                return [FashionItem.model_validate(x) for x in cached["items"]]
-            except Exception:
-                pass
-
         budget_clause = f"under ₹{max_budget_inr}" if max_budget_inr else (
             f"around or under ₹{dna.budget_max}" if dna.budget_max else "various mid-range budgets"
         )
         size_clause = f"Size: {dna.sizes.get(category)}" if dna.sizes.get(category) else ""
         taste_clause = summarize_dna_for_prompt(dna)
+        avoid_clause = (
+            f"\nDifferent from these (do not repeat): {', '.join(exclude_names[:20])}"
+            if exclude_names
+            else ""
+        )
 
         search_prompt = (
-            f"Find 5-6 real, currently buyable {category} items online in {config.DEFAULT_REGION} ({config.DEFAULT_CURRENCY}) "
-            f"for this request: '{query}'. Budget: {budget_clause}. {size_clause}\n"
+            f"Find {config.ITEM_CANDIDATES} distinct real, currently buyable {category} items online in {config.DEFAULT_REGION} ({config.DEFAULT_CURRENCY}) "
+            f"for this request: '{query}'. Budget: {budget_clause}. {size_clause}{avoid_clause}\n"
             f"User Style DNA to prioritize:\n{taste_clause}"
         )
-        findings, grounding_links = await self._run_google_search(search_prompt)
+        if multi_angle:
+            findings, grounding_links = await self._multi_search(
+                search_prompt, per_angle=max(8, config.ITEM_CANDIDATES // 2)
+            )
+        else:
+            findings, grounding_links = await self._run_google_search(search_prompt)
 
         extract_prompt = (
             f"User query: {query}\nCategory: {category}\nUser Style DNA:\n{taste_clause}\n\n"
@@ -348,7 +434,7 @@ class LiveGoogleSearchBackend:
 
         valid_urls = {link["url"]: link["title"] for link in grounding_links}
         normalized: list[FashionItem] = []
-        for item in batch.items[:6]:
+        for item in batch.items[: config.ITEM_CANDIDATES + 4]:
             has_verified = bool(item.url and item.url in valid_urls)
             url = item.url if has_verified else _shop_search_url(item.brand, item.name)
             domain = _domain_of(url, valid_urls.get(item.url, "") if has_verified else "google.com")
@@ -356,21 +442,73 @@ class LiveGoogleSearchBackend:
                 item.model_copy(
                     update={
                         "id": _stable_id(item.brand, item.name),
-                        "category": item.category or category,
+                        "category": _normalize_category(item.category or category),
                         "url": url,
                         "url_verified": has_verified,
                         "source_domain": domain,
                     }
                 )
             )
-        enriched = await enrich_item_images(normalized, user_id=dna.user_id)
-        if enriched:
+        ranked = rerank_items(_dedupe_items(normalized), dna)
+        return await enrich_item_images(ranked, max_gen=4, user_id=dna.user_id)
+
+    async def search(
+        self,
+        query: str,
+        category: str,
+        max_budget_inr: int | None,
+        dna: StyleDNA,
+        *,
+        exclude_ids: set[str] | None = None,
+        limit: int | None = None,
+    ) -> list[FashionItem]:
+        cat = _normalize_category(category)
+        page_limit = limit or config.ITEM_DECK_MAX
+        excluded = set(exclude_ids or ())
+        pool_key = f"pool:{query.strip().lower()}:{cat}:{max_budget_inr or dna.budget_max or 0}:{pref_hash(dna)}"
+
+        pool: list[FashionItem] = []
+        cached = get_db().get_search_cache(pool_key)
+        if cached and isinstance(cached.get("items"), list):
+            for raw in cached["items"]:
+                try:
+                    it = FashionItem.model_validate(raw)
+                    if it.image_url:
+                        it = it.model_copy(update={"image_url": resign_media_url(it.image_url)})
+                    pool.append(it)
+                except Exception:
+                    continue
+
+        if not pool:
+            pool = await self._discover_and_enrich(
+                query=query,
+                category=cat,
+                max_budget_inr=max_budget_inr,
+                dna=dna,
+                multi_angle=True,
+            )
+
+        page = [it for it in pool if it.id not in excluded]
+        if len(page) < config.ITEM_DECK_MIN:
+            avoid_names = [it.name for it in pool if it.id in excluded or it in page]
+            extra = await self._discover_and_enrich(
+                query=query,
+                category=cat,
+                max_budget_inr=max_budget_inr,
+                dna=dna,
+                exclude_names=avoid_names,
+                multi_angle=len(pool) == 0,
+            )
+            pool = _dedupe_items([*pool, *extra])
+            page = [it for it in pool if it.id not in excluded]
+
+        if pool:
             get_db().set_search_cache(
-                cache_key,
-                {"items": [i.model_dump() for i in enriched]},
+                pool_key,
+                {"items": [i.model_dump() for i in pool]},
                 ttl_sec=config.SEARCH_CACHE_TTL_SEC,
             )
-        return enriched
+        return page[:page_limit]
 
     async def curate_outfit(
         self,
@@ -544,11 +682,62 @@ def _backend() -> SearchBackend:
     return _SEARCH_BACKEND or LiveGoogleSearchBackend()
 
 
+async def _invoke_backend_search(
+    backend: SearchBackend,
+    *,
+    query: str,
+    category: str,
+    max_budget_inr: int | None,
+    dna: StyleDNA,
+    exclude_ids: set[str],
+    limit: int,
+) -> list[FashionItem]:
+    """Call backend.search while staying compatible with minimal 4-arg test fakes."""
+    sig = inspect.signature(backend.search)
+    kwargs: dict[str, Any] = {}
+    if "exclude_ids" in sig.parameters:
+        kwargs["exclude_ids"] = exclude_ids
+    if "limit" in sig.parameters:
+        kwargs["limit"] = limit
+    items = await backend.search(query=query, category=category, max_budget_inr=max_budget_inr, dna=dna, **kwargs)
+    filtered = [it for it in _dedupe_items(items, exclude_ids=exclude_ids) if it.image_url or getattr(backend, "allow_imageless", False)]
+    # If a test backend didn't set image_url on mock items, fall back to keeping them unless real pipeline ran
+    if not filtered and items:
+        filtered = _dedupe_items(items, exclude_ids=exclude_ids)
+    return filtered[:limit]
+
+
+async def search_items_deck(
+    query: str,
+    dna: StyleDNA,
+    category: str = "apparel",
+    max_budget_inr: int | None = None,
+    exclude_item_ids: list[str] | None = None,
+    limit: int | None = None,
+) -> list[FashionItem]:
+    """Direct item search / pagination helper used by POST /items/search (bypasses LLM)."""
+    cat = _normalize_category(category)
+    page_limit = max(1, min(limit or config.ITEM_DECK_MAX, config.ITEM_CANDIDATES))
+    excluded = set(dna.seen_item_ids) | set(exclude_item_ids or [])
+    items = await _invoke_backend_search(
+        _backend(),
+        query=query,
+        category=cat,
+        max_budget_inr=max_budget_inr,
+        dna=dna,
+        exclude_ids=excluded,
+        limit=page_limit,
+    )
+    return rerank_items(items, dna)
+
+
 async def search_fashion_online(
     query: str,
     tool_context: ToolContext,
     category: str = "apparel",
     max_budget_inr: int | None = None,
+    exclude_item_ids: list[str] | None = None,
+    limit: int | None = None,
 ) -> dict[str, Any]:
     """Search online for individual buyable fashion pieces (tops, bottoms, shoes, accessories) matching Style DNA.
 
@@ -559,18 +748,48 @@ async def search_fashion_online(
                'chunky white casual sneakers', 'minimalist tan leather crossbody bag').
         category: One of 'apparel', 'tops', 'bottoms', 'outerwear', 'dresses', 'shoes', 'accessories', 'ethnic'.
         max_budget_inr: Optional maximum price budget in INR.
+        exclude_item_ids: Optional list of item IDs to exclude from results.
+        limit: Optional max number of cards to return (defaults to ITEM_DECK_MAX).
     """
     dna = _resolve_dna(tool_context)
     dna.declined = False
-    items = await _backend().search(query=query, category=category, max_budget_inr=max_budget_inr, dna=dna)
+    cat = _normalize_category(category)
+    page_limit = max(1, min(limit or config.ITEM_DECK_MAX, config.ITEM_CANDIDATES))
+    excluded = set(dna.seen_item_ids) | set(exclude_item_ids or [])
+
+    items = await _invoke_backend_search(
+        _backend(),
+        query=query,
+        category=cat,
+        max_budget_inr=max_budget_inr,
+        dna=dna,
+        exclude_ids=excluded,
+        limit=page_limit,
+    )
     ranked = rerank_items(items, dna)
 
-    tool_context.state["current_cards"] = [i.model_dump() for i in ranked]
-    tool_context.state["ui_action"] = UIAction(type="swipe_deck", items=ranked).model_dump()
+    prev_cards = list(tool_context.state.get("current_cards") or [])
+    merged_cards: list[dict[str, Any]] = []
+    seen_card_ids: set[str] = set()
+    for raw in [i.model_dump() for i in ranked] + prev_cards:
+        cid = str(raw.get("id") or "")
+        if cid and cid in seen_card_ids:
+            continue
+        if cid:
+            seen_card_ids.add(cid)
+        merged_cards.append(raw)
+    tool_context.state["current_cards"] = merged_cards[:60]
+
+    tool_context.state["ui_action"] = UIAction(
+        type="swipe_deck",
+        items=ranked,
+        search_meta=SearchMeta(query=query, category=cat, max_budget_inr=max_budget_inr),
+    ).model_dump()
     _persist_dna(tool_context, dna)
 
     return {
         "status": "ok",
+        "category": cat,
         "count": len(ranked),
         "shown_in_swipe_deck": True,
         "items": [

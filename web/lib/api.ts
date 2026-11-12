@@ -127,6 +127,22 @@ export const api = {
       },
       i.token,
     ),
+  searchItems: (
+    i: Ids,
+    opts: { query: string; category?: string; max_budget_inr?: number | null; excludeItemIds?: string[] },
+  ) =>
+    post<{ items: FashionItem[]; style_dna: StyleDNA }>(
+      "/api/items/search",
+      {
+        session_id: i.sessionId,
+        user_id: i.userId,
+        query: opts.query,
+        category: opts.category ?? "apparel",
+        max_budget_inr: opts.max_budget_inr ?? null,
+        exclude_item_ids: opts.excludeItemIds ?? [],
+      },
+      i.token,
+    ),
   wishlist: (i: Ids) => get<{ wishlist: OutfitLook[]; style_dna: StyleDNA }>(`/api/wishlist?user_id=${encodeURIComponent(i.userId)}`, i.token),
   removeWishlistLook: (i: Ids, lookId: string) =>
     del<StyleDNA>(`/api/wishlist/${encodeURIComponent(lookId)}?user_id=${encodeURIComponent(i.userId)}`, i.token),

@@ -38,7 +38,8 @@ _MAX_MEDIA = config.MEDIA_MAX_ENTRIES
 _LOCK = threading.RLock()
 _MEDIA_CACHE: OrderedDict[str, tuple[bytes, str, str]] = OrderedDict()  # id -> (bytes, mime, user_id)
 _GENAI_CLIENT = None
-_FETCH_SEMAPHORE = asyncio.Semaphore(4)
+_FETCH_SEMAPHORE = asyncio.Semaphore(8)
+_GEN_SEMAPHORE = asyncio.Semaphore(2)
 _MAX_REDIRECTS = 4
 _MAX_HTML_BYTES = 1_000_000
 _MAX_IMAGE_BYTES = 4_194_304
@@ -102,6 +103,19 @@ def signed_media_url(media_id: str, ttl_seconds: int = 3600) -> str:
     exp = int(time.time()) + ttl_seconds
     sig = sign_media_token(media_id, exp)
     return f"/api/media/{media_id}?exp={exp}&sig={sig}"
+
+
+_MEDIA_URL_RE = re.compile(r"^/api/media/([A-Za-z0-9._-]+)(?:\?.*)?$")
+
+
+def resign_media_url(url: str, ttl_seconds: int = 3600) -> str:
+    """Refresh HMAC expiry on cached `/api/media/<id>` URLs so cached items never serve expired links."""
+    if not url:
+        return url
+    m = _MEDIA_URL_RE.match(url.strip())
+    if not m:
+        return url
+    return signed_media_url(m.group(1), ttl_seconds=ttl_seconds)
 
 
 def put_media(
@@ -438,59 +452,80 @@ async def generate_fashion_image(prompt: str, cache_key: str, *, user_id: str = 
         return ""
 
 
-async def enrich_item_images(items: list[FashionItem], max_gen: int = 4, *, user_id: str = "") -> list[FashionItem]:
-    """Concurrently resolve real og:image + verified price and tag AI fallback visuals accurately."""
+async def _enrich_one_item(idx: int, item: FashionItem, *, max_gen: int, user_id: str) -> FashionItem:
+    final_url, img_url = item.url, item.image_url
+    img_source = item.image_source
+    domain = item.source_domain
+    price_inr = item.price_estimate_inr
+    price_text = item.price_text
+    url_verified = item.url_verified
 
-    async def enrich_one(idx: int, item: FashionItem) -> FashionItem:
+    if not img_url and item.url_verified and item.url:
         async with _FETCH_SEMAPHORE:
-            final_url, img_url = item.url, item.image_url
-            img_source = item.image_source
-            domain = item.source_domain
-            price_inr = item.price_estimate_inr
-            price_text = item.price_text
-            url_verified = item.url_verified
-
-            if not img_url and item.url_verified and item.url:
-                final_url, img_url, found_inr, found_txt, reachable = await fetch_page_image(
-                    item.url, item_name=item.name, category=item.category, user_id=user_id
-                )
-                url_verified = reachable
-                if img_url:
-                    img_source = "retailer"
-                if found_inr and found_txt:
-                    price_inr = found_inr
-                    price_text = found_txt
-                try:
-                    host = urlparse(final_url).netloc.lower().removeprefix("www.")
-                    if host and "vertexaisearch.cloud.google.com" not in host:
-                        domain = host
-                except Exception:
-                    pass
-
-            if not img_url and idx < max_gen:
-                prompt = (
-                    f"Clean e-commerce studio product photograph on soft warm stone background of: "
-                    f"{item.color} {item.name} ({item.category}) by {item.brand}. "
-                    f"Style vibe: {', '.join(item.aesthetic_tags[:3]) or 'modern minimalist'}. "
-                    f"Sharp garment details, natural lighting, no text, no watermarks."
-                )
-                img_url = await generate_fashion_image(prompt, cache_key=f"item_{item.id}", user_id=user_id)
-                if img_url:
-                    img_source = "ai_generated"
-
-            return item.model_copy(
-                update={
-                    "url": final_url,
-                    "url_verified": url_verified,
-                    "source_domain": domain,
-                    "image_url": img_url,
-                    "image_source": img_source,
-                    "price_estimate_inr": price_inr,
-                    "price_text": price_text,
-                }
+            final_url, img_url, found_inr, found_txt, reachable = await fetch_page_image(
+                item.url, item_name=item.name, category=item.category, user_id=user_id
             )
+        url_verified = reachable
+        if img_url:
+            img_source = "retailer"
+        if found_inr and found_txt:
+            price_inr = found_inr
+            price_text = found_txt
+        try:
+            host = urlparse(final_url).netloc.lower().removeprefix("www.")
+            if host and "vertexaisearch.cloud.google.com" not in host:
+                domain = host
+        except Exception:
+            pass
 
-    return list(await asyncio.gather(*(enrich_one(i, item) for i, item in enumerate(items))))
+    if not img_url and idx < max_gen:
+        prompt = (
+            f"Clean e-commerce studio product photograph on soft warm stone background of: "
+            f"{item.color} {item.name} ({item.category}) by {item.brand}. "
+            f"Style vibe: {', '.join(item.aesthetic_tags[:3]) or 'modern minimalist'}. "
+            f"Sharp garment details, natural lighting, no text, no watermarks."
+        )
+        async with _GEN_SEMAPHORE:
+            img_url = await generate_fashion_image(prompt, cache_key=f"item_{item.id}", user_id=user_id)
+        if img_url:
+            img_source = "ai_generated"
+
+    return item.model_copy(
+        update={
+            "url": final_url,
+            "url_verified": url_verified,
+            "source_domain": domain,
+            "image_url": img_url,
+            "image_source": img_source,
+            "price_estimate_inr": price_inr,
+            "price_text": price_text,
+        }
+    )
+
+
+async def enrich_item_images(items: list[FashionItem], max_gen: int = 4, *, user_id: str = "") -> list[FashionItem]:
+    """Concurrently resolve real og:image + verified price, drop imageless items, and sort retailer images first."""
+    enriched = list(
+        await asyncio.gather(*(_enrich_one_item(i, item, max_gen=max_gen, user_id=user_id) for i, item in enumerate(items)))
+    )
+    with_images = [it for it in enriched if it.image_url]
+    # Keep retailer photos ahead of AI visualizations while preserving relative rank
+    with_images.sort(key=lambda it: 1 if it.image_source == "ai_generated" else 0)
+    return with_images
+
+
+async def enrich_item_stream(
+    items: list[FashionItem], max_gen: int = 4, *, user_id: str = ""
+) -> AsyncIterator[FashionItem]:
+    """Stream each item card with a valid image as soon as enrichment finishes."""
+    tasks = [
+        asyncio.create_task(_enrich_one_item(i, item, max_gen=max_gen, user_id=user_id))
+        for i, item in enumerate(items)
+    ]
+    for fut in asyncio.as_completed(tasks):
+        enriched = await fut
+        if enriched.image_url:
+            yield enriched
 
 
 async def enrich_outfit_images(look: OutfitLook, *, user_id: str = "") -> OutfitLook:

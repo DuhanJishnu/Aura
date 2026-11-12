@@ -52,6 +52,8 @@ export default function StoreFront() {
   }, [profileOpen, refreshProfile]);
 
   const showHome = shopper.panel.kind === "empty";
+  const latestMsg = shopper.messages[shopper.messages.length - 1];
+  const lastError = latestMsg?.role === "err" ? latestMsg.text : undefined;
   const lastBot =
     shopper.messages.length > 1
       ? [...shopper.messages].reverse().find((m) => m.role === "bot")?.text
@@ -78,6 +80,7 @@ export default function StoreFront() {
             ready={shopper.ready}
             intentOpen={shopper.intentOpen}
             lastBotReply={lastBot}
+            lastError={lastError}
             onToggleIntent={() => shopper.setIntentOpen((v) => !v)}
             onSend={(t) => {
               shopper.setIntentOpen(false);
@@ -140,7 +143,11 @@ export default function StoreFront() {
 
       <BuySheet
         look={shopper.buySheetLook}
-        onClose={() => shopper.setBuySheetLook(null)}
+        item={shopper.buySheetItem}
+        onClose={() => {
+          shopper.setBuySheetLook(null);
+          shopper.setBuySheetItem(null);
+        }}
         onSaveWishlist={(look) => {
           void shopper.saveOutfit(look);
           shopper.setBuySheetLook(null);

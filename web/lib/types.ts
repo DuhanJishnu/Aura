@@ -94,6 +94,7 @@ export interface StyleDNA {
   saved_outfits: OutfitLook[];
   disliked_item_keys: string[];
   seen_look_ids?: string[];
+  seen_item_ids?: string[];
   tutorial_seen?: boolean;
   swipe_history: SwipeRecord[];
   facts: FactEntry[];
@@ -111,6 +112,12 @@ export type UIActionType =
   | "request_photo"
   | "confirm_forget";
 
+export interface SearchMeta {
+  query: string;
+  category: string;
+  max_budget_inr?: number | null;
+}
+
 export interface UIAction {
   type: UIActionType;
   items: FashionItem[];
@@ -118,6 +125,7 @@ export interface UIAction {
   looks?: OutfitLook[];
   focus_item?: FashionItem | null;
   photo_mode?: "complexion" | "outfit_check" | null;
+  search_meta?: SearchMeta | null;
 }
 
 export interface ChatRequestBody {

@@ -190,6 +190,9 @@ def apply_swipe(dna: StyleDNA, item: FashionItem, direction: str) -> str:
     """Update StyleDNA from an item swipe (like/dislike/super_like) and return a stylist reaction."""
     key = item_key(item)
     now = datetime.now(UTC).isoformat(timespec="seconds")
+    if item.id and item.id not in dna.seen_item_ids:
+        dna.seen_item_ids.append(item.id)
+        dna.seen_item_ids = dna.seen_item_ids[-200:]
     dna.swipe_history = [
         *dna.swipe_history[-49:],
         SwipeRecord(
@@ -322,6 +325,7 @@ def undo_last_swipe(dna: StyleDNA) -> str:
         delta = 0.4
 
     dna.seen_look_ids = [lid for lid in dna.seen_look_ids if lid != target_id]
+    dna.seen_item_ids = [iid for iid in dna.seen_item_ids if iid != target_id]
     for tag in last.tags:
         t = tag.strip().lower()
         if t and t in dna.aesthetics:

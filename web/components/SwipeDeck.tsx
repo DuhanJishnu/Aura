@@ -1,272 +1,266 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { ExternalLink, LayoutGrid, RotateCcw, Sparkles } from "lucide-react";
 import type { FashionItem } from "@/lib/types";
-import Thumb from "./Thumb";
-import { Button, Meta } from "./ui";
+import SwipeStack from "./SwipeStack";
 
-interface SwipeDeckProps {
-  items: FashionItem[];
-  onSwipe: (item: FashionItem, direction: "like" | "dislike" | "super_like") => Promise<unknown>;
-  onStyleAround: (item: FashionItem) => void;
-  onAskOpinion: (item: FashionItem) => void;
-  onOpenDetail: (item: FashionItem) => void;
-  onSwitchToGrid: () => void;
-  onFindMore: () => void;
+export function ItemFront({ item }: { item: FashionItem }) {
+  const [imgBroken, setImgBroken] = useState(false);
+  const bgGradient = `linear-gradient(155deg, ${item.color_hex || "#2d4c3e"} 0%, #141715 100%)`;
+
+  return (
+    <div
+      className="relative flex flex-1 flex-col justify-end overflow-hidden"
+      style={{ background: bgGradient }}
+    >
+      {item.image_url && !imgBroken ? (
+        <img
+          src={item.image_url}
+          alt={item.name}
+          draggable={false}
+          onError={() => setImgBroken(true)}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+          <span
+            className="h-12 w-12 rounded-full border-2 border-white/30 shadow-lg"
+            style={{ backgroundColor: item.color_hex || "#6ba58a" }}
+          />
+          <span className="text-xs font-medium uppercase tracking-widest text-white/75">{item.category}</span>
+        </div>
+      )}
+
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/95 via-black/55 to-transparent" />
+
+      <div className="relative z-10 space-y-1.5 p-5 text-left">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="rounded-full bg-black/55 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-stone-200 backdrop-blur-sm">
+              {item.brand}
+            </span>
+            {item.image_source === "ai_generated" && (
+              <span className="rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-medium text-amber-200 backdrop-blur-sm">
+                AI visualization
+              </span>
+            )}
+          </div>
+          {item.price_text && (
+            <span className="rounded-full bg-black/60 px-2.5 py-0.5 text-xs font-semibold text-stone-100 backdrop-blur-sm">
+              {item.price_text}
+            </span>
+          )}
+        </div>
+
+        <h3 className="truncate text-lg font-bold leading-snug text-white">{item.name}</h3>
+      </div>
+    </div>
+  );
 }
 
+function ItemInfo({
+  item,
+  onToggleExpand,
+  onOpenDetail,
+  onStyleAround,
+  onAskOpinion,
+}: {
+  item: FashionItem;
+  onToggleExpand: () => void;
+  onOpenDetail: (item: FashionItem) => void;
+  onStyleAround: (item: FashionItem) => void;
+  onAskOpinion: (item: FashionItem) => void;
+}) {
+  return (
+    <div className="flex flex-1 flex-col overflow-hidden bg-[#151816] text-stone-100">
+      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+        <div className="min-w-0 pr-2 text-left">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-[#6ba58a]">
+            {item.brand} · <span className="capitalize">{item.color}</span>
+            {item.price_text ? ` · ${item.price_text}` : ""}
+          </div>
+          <h3 className="truncate text-base font-semibold">{item.name}</h3>
+        </div>
+        <button
+          type="button"
+          onClick={onToggleExpand}
+          className="shrink-0 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-stone-200 hover:bg-white/20"
+        >
+          Collapse
+        </button>
+      </div>
+
+      <div className="flex-1 space-y-3 overflow-y-auto p-4 text-left">
+        {item.aesthetic_tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {item.aesthetic_tags.map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-[11px] text-stone-300"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {item.match_reasons.length > 0 && (
+          <div className="text-xs font-medium text-[#8fd1b2]">★ {item.match_reasons.join(" · ")}</div>
+        )}
+
+        {item.why_it_suits_you && <p className="text-xs leading-relaxed text-stone-200">{item.why_it_suits_you}</p>}
+
+        {item.styling_tip && (
+          <p className="rounded-xl bg-white/5 p-3 text-xs text-stone-300">
+            <span className="font-semibold text-[#8fd1b2]">Style tip:</span> {item.styling_tip}
+          </p>
+        )}
+
+        {item.source_domain && (
+          <div className="text-[11px] text-stone-400">Source: {item.source_domain}</div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+          <button
+            type="button"
+            onClick={() => onStyleAround(item)}
+            className="rounded-full border border-[#6ba58a]/40 bg-[#6ba58a]/15 px-3 py-1.5 font-medium text-[#9ce0c0] hover:bg-[#6ba58a]/25"
+          >
+            ★ Style This
+          </button>
+          <button
+            type="button"
+            onClick={() => onAskOpinion(item)}
+            className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 font-medium text-stone-200 hover:bg-white/10"
+          >
+            Ask Aura
+          </button>
+          <button
+            type="button"
+            onClick={() => onOpenDetail(item)}
+            className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 font-medium text-stone-200 hover:bg-white/10"
+          >
+            Full details
+          </button>
+          {item.url && (
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-auto flex items-center gap-1 rounded-full border border-white/20 px-3 py-1.5 font-medium text-stone-100 hover:border-[#6ba58a]"
+            >
+              {item.url_verified ? "Shop online" : "Find online"} <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Image-first swipe deck for individual discovered fashion items, unified on SwipeStack. */
 export default function SwipeDeck({
   items,
+  deckId,
   onSwipe,
+  onUndo,
+  onBuy,
   onStyleAround,
   onAskOpinion,
   onOpenDetail,
   onSwitchToGrid,
   onFindMore,
-}: SwipeDeckProps) {
-  const [index, setIndex] = useState(0);
-  const [drag, setDrag] = useState({ x: 0, y: 0, active: false });
-  const [reaction, setReaction] = useState<string>("");
-  const [likedCount, setLikedCount] = useState(0);
-  const startRef = useRef<{ x: number; y: number } | null>(null);
-
-  // Reset index whenever a fresh deck arrives
-  useEffect(() => {
-    setIndex(0);
-    setDrag({ x: 0, y: 0, active: false });
-    setReaction("");
-    setLikedCount(0);
-  }, [items]);
-
-  const current = items[index] ?? null;
-
-  const commitSwipe = useCallback(
-    async (dir: "like" | "dislike" | "super_like") => {
-      if (!current) return;
-      const picked = current;
-      setIndex((i) => i + 1);
-      setDrag({ x: 0, y: 0, active: false });
-      if (dir !== "dislike") setLikedCount((c) => c + 1);
-      const res = (await onSwipe(picked, dir)) as { reaction?: string } | null;
-      if (res?.reaction) setReaction(res.reaction);
-      if (dir === "super_like") {
-        onStyleAround(picked);
-      }
-    },
-    [current, onSwipe, onStyleAround],
-  );
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!current) return;
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if (e.key === "ArrowRight") {
-        e.preventDefault();
-        void commitSwipe("like");
-      } else if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        void commitSwipe("dislike");
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        void commitSwipe("super_like");
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [current, commitSwipe]);
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    if ((e.target as HTMLElement).closest("a, button")) return;
-    startRef.current = { x: e.clientX, y: e.clientY };
-    setDrag({ x: 0, y: 0, active: true });
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  };
-
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (!startRef.current) return;
-    setDrag({ x: e.clientX - startRef.current.x, y: e.clientY - startRef.current.y, active: true });
-  };
-
-  const onPointerUp = () => {
-    if (!startRef.current) return;
-    startRef.current = null;
-    if (drag.x > 90) void commitSwipe("like");
-    else if (drag.x < -90) void commitSwipe("dislike");
-    else if (drag.y < -95) void commitSwipe("super_like");
-    else setDrag({ x: 0, y: 0, active: false });
-  };
-
-  const stamp =
-    drag.x > 45 ? "LIKE" : drag.x < -45 ? "PASS" : drag.y < -55 ? "STYLE THIS" : null;
-
+  onNeedMore,
+}: {
+  items: FashionItem[];
+  deckId?: string;
+  onSwipe: (item: FashionItem, dir: "like" | "dislike" | "super_like") => Promise<unknown>;
+  onUndo?: () => void;
+  onBuy?: (item: FashionItem) => void;
+  onStyleAround: (item: FashionItem) => void;
+  onAskOpinion: (item: FashionItem) => void;
+  onOpenDetail: (item: FashionItem) => void;
+  onSwitchToGrid: () => void;
+  onFindMore: () => void;
+  onNeedMore?: () => void;
+}) {
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-            Style Swipe Deck
-          </h2>
-          {current && (
-            <Meta>
-              Card {index + 1} of {items.length} · Drag or use ← ↑ → keys
-            </Meta>
-          )}
-        </div>
-        <Button variant="ghost" onClick={onSwitchToGrid}>
-          Grid view
-        </Button>
-      </div>
-
-      {reaction && (
-        <div className="rounded-xl border border-brand-500/30 bg-brand-600/10 px-3 py-2 text-xs text-brand-700 dark:text-brand-400">
-          {reaction}
-        </div>
+    <SwipeStack
+      items={items}
+      getKey={(it) => it.id}
+      getPreloadUrl={(it) => it.image_url}
+      deckId={deckId ?? items[0]?.id ?? "empty"}
+      noun="Card"
+      labels={{
+        skip: "Pass",
+        info: "Toggle item details",
+        buy: "Buy this item",
+        save: "Like and save to closet",
+        buyStamp: "BUY",
+      }}
+      headerRight={
+        <button
+          type="button"
+          onClick={onSwitchToGrid}
+          className="flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] text-stone-200 hover:border-[#6ba58a]"
+        >
+          <LayoutGrid className="h-3 w-3" /> Grid
+        </button>
+      }
+      renderFront={(item) => <ItemFront item={item} />}
+      renderInfo={(item, { toggle }) => (
+        <ItemInfo
+          item={item}
+          onToggleExpand={toggle}
+          onOpenDetail={onOpenDetail}
+          onStyleAround={onStyleAround}
+          onAskOpinion={onAskOpinion}
+        />
       )}
-
-      {!current ? (
-        <div className="rounded-2xl border border-stone-200 bg-white p-6 text-center shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-          <h3 className="text-lg font-semibold">Deck complete!</h3>
-          <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
-            You saved {likedCount} piece{likedCount === 1 ? "" : "s"} to your closet and trained Aura on your taste.
-          </p>
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <Button onClick={onFindMore}>Find more like my likes</Button>
-            <Button variant="ghost" onClick={() => setIndex(0)}>
-              Review cards again
-            </Button>
+      onCommit={(item, action) => {
+        if (action === "buy") {
+          onBuy?.(item);
+          void onSwipe(item, "like");
+        } else if (action === "save") {
+          void onSwipe(item, "like");
+        } else {
+          void onSwipe(item, "dislike");
+        }
+      }}
+      onUndo={onUndo}
+      onNeedMore={onNeedMore}
+      empty={({ canUndo, undo }) => (
+        <div className="mx-auto flex h-full max-w-sm flex-col items-center justify-center gap-4 px-4 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#6ba58a]/20 text-[#6ba58a]">
+            <Sparkles className="h-7 w-7" />
           </div>
-        </div>
-      ) : (
-        <div className="relative select-none">
-          <article
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
-            style={{
-              transform: `translate3d(${drag.x}px, ${drag.y}px, 0) rotate(${drag.x * 0.04}deg)`,
-              transition: drag.active ? "none" : "transform 200ms ease-out",
-              touchAction: "none",
-            }}
-            className="cursor-grab overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-md active:cursor-grabbing dark:border-neutral-800 dark:bg-neutral-900"
-          >
-            <div className="relative">
-              <Thumb item={current} className="h-64" />
-              {stamp && (
-                <div
-                  className={`absolute top-4 rounded-lg border-2 px-3 py-1 text-sm font-bold tracking-widest ${
-                    stamp === "LIKE"
-                      ? "left-4 -rotate-12 border-emerald-400 bg-emerald-950/80 text-emerald-300"
-                      : stamp === "PASS"
-                        ? "right-4 rotate-12 border-rose-400 bg-rose-950/80 text-rose-300"
-                        : "left-1/2 -translate-x-1/2 border-amber-400 bg-amber-950/80 text-amber-300"
-                  }`}
-                >
-                  {stamp}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2.5 p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h3 className="text-lg font-semibold leading-snug">{current.name}</h3>
-                  <Meta>
-                    {current.brand} · <span className="capitalize">{current.color}</span>
-                  </Meta>
-                </div>
-                <span className="shrink-0 rounded-full bg-stone-100 px-2.5 py-1 text-sm font-semibold dark:bg-neutral-800">
-                  {current.price_text}
-                </span>
-              </div>
-
-              {current.aesthetic_tags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {current.aesthetic_tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full border border-stone-200 px-2.5 py-0.5 text-xs text-stone-600 dark:border-neutral-700 dark:text-stone-300"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {current.match_reasons.length > 0 && (
-                <div className="text-xs font-medium text-brand-700 dark:text-brand-400">
-                  ★ {current.match_reasons.join(" · ")}
-                </div>
-              )}
-
-              {current.why_it_suits_you && (
-                <p className="text-sm text-stone-700 dark:text-stone-200">{current.why_it_suits_you}</p>
-              )}
-
-              {current.styling_tip && (
-                <p className="rounded-lg bg-stone-50 p-2.5 text-xs text-stone-600 dark:bg-neutral-950 dark:text-stone-300">
-                  <span className="font-semibold">Style tip:</span> {current.styling_tip}
-                </p>
-              )}
-
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
-                <button
-                  type="button"
-                  onClick={() => onOpenDetail(current)}
-                  className="font-medium text-stone-600 underline hover:text-brand-600 dark:text-stone-300"
-                >
-                  Full details
-                </button>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => onAskOpinion(current)}
-                    className="font-medium text-stone-600 underline hover:text-brand-600 dark:text-stone-300"
-                  >
-                    Ask Aura
-                  </button>
-                  {current.url && current.image_source !== "ai_generated" ? (
-                    <a
-                      href={current.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-md border border-stone-300 px-2.5 py-1 font-medium hover:border-brand-600 dark:border-neutral-700"
-                    >
-                      {current.url_verified ? "Shop online ↗" : "Find online ↗"}
-                    </a>
-                  ) : current.image_source === "ai_generated" && current.url_verified && current.url ? (
-                    <a
-                      href={current.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-md border border-stone-300 px-2.5 py-1 font-medium hover:border-brand-600 dark:border-neutral-700"
-                    >
-                      View store ↗
-                    </a>
-                  ) : current.image_source === "ai_generated" ? (
-                    <span className="rounded-md border border-amber-500/30 bg-amber-950/30 px-2 py-1 text-[11px] text-amber-200">
-                      AI visualization
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          </article>
-
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            <Button variant="ghost" onClick={() => void commitSwipe("dislike")} aria-label="Pass">
-              ✕ Pass
-            </Button>
-            <Button variant="ghost" onClick={() => void commitSwipe("super_like")} aria-label="Style outfit around this">
-              ★ Style This
-            </Button>
-            <Button onClick={() => void commitSwipe("like")} aria-label="Like and save to closet">
-              ♥ Save
-            </Button>
+          <div>
+            <h3 className="text-lg font-semibold text-stone-100">You&apos;ve seen all {items.length} picks!</h3>
+            <p className="mt-1 text-xs text-stone-400">
+              Aura learned from your swipes and won&apos;t repeat these items.
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2">
+            <button
+              type="button"
+              onClick={onFindMore}
+              className="rounded-full bg-[#6ba58a] px-5 py-2.5 text-sm font-semibold text-neutral-950 transition hover:brightness-110"
+            >
+              Find more like my likes
+            </button>
+            {canUndo && (
+              <button
+                type="button"
+                onClick={undo}
+                className="flex items-center gap-1.5 rounded-full border border-white/15 px-4 py-2.5 text-xs text-stone-200 hover:bg-white/10"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> Undo last
+              </button>
+            )}
           </div>
         </div>
       )}
-    </div>
+    />
   );
 }

@@ -103,10 +103,17 @@ class StyleDNA(BaseModel):
     disliked_item_keys: list[str] = Field(default_factory=list)
     seen_look_ids: list[str] = Field(default_factory=list)
     seen_look_fingerprints: list[str] = Field(default_factory=list)
+    seen_item_ids: list[str] = Field(default_factory=list)
     tutorial_seen: bool = False
     swipe_history: list[SwipeRecord] = Field(default_factory=list)
     facts: list[FactEntry] = Field(default_factory=list)
     declined: bool = False
+
+
+class SearchMeta(BaseModel):
+    query: str
+    category: str = "apparel"
+    max_budget_inr: int | None = None
 
 
 class UIAction(BaseModel):
@@ -126,6 +133,7 @@ class UIAction(BaseModel):
     looks: list[OutfitLook] = Field(default_factory=list)
     focus_item: FashionItem | None = None
     photo_mode: Literal["complexion", "outfit_check"] | None = None
+    search_meta: SearchMeta | None = None
 
 
 class ChatRequest(BaseModel):
@@ -210,6 +218,16 @@ class LookSearchRequest(BaseModel):
     budget_inr: int | None = None
     anchor_item: str = ""
     exclude_look_ids: list[str] = Field(default_factory=list)
+    style_dna: StyleDNA | None = None
+
+
+class ItemSearchRequest(BaseModel):
+    session_id: str = Field(default="default", min_length=1, max_length=120)
+    user_id: str = Field(default="default", min_length=1, max_length=120)
+    query: str = Field(..., min_length=1, max_length=300)
+    category: str = Field(default="apparel", max_length=40)
+    max_budget_inr: int | None = None
+    exclude_item_ids: list[str] = Field(default_factory=list)
     style_dna: StyleDNA | None = None
 
 

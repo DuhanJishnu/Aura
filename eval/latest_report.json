@@ -14,7 +14,7 @@
         "ui_accuracy": 1.0
       },
       "notes": [],
-      "latency_s": 0.002
+      "latency_s": 0.003
     },
     {
       "id": "sc_outfit_occasion",

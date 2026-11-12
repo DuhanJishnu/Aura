@@ -22,6 +22,7 @@ from stylist_agent.schemas import (
     ChatRequest,
     ChatResponse,
     ConfirmComplexionReq,
+    ItemSearchRequest,
     LookSearchRequest,
     LookSwipeRequest,
     OutfitLook,
@@ -33,7 +34,7 @@ from stylist_agent.schemas import (
     SwipeResponse,
     TranscribeReq,
 )
-from stylist_agent.tools import search_looks_deck, stream_looks_deck
+from stylist_agent.tools import search_items_deck, search_looks_deck, stream_looks_deck
 
 log = logging.getLogger("shopper.api")
 
@@ -308,6 +309,20 @@ async def looks_search(req: LookSearchRequest, request: Request, svc: StylistSer
         exclude_look_ids=req.exclude_look_ids,
     )
     return {"looks": [lk.model_dump() for lk in looks], "style_dna": dna.model_dump()}
+
+
+@app.post("/items/search", dependencies=[Depends(rate_limit), Depends(require_api_key)])
+async def items_search(req: ItemSearchRequest, request: Request, svc: StylistService = Depends(get_service)):  # noqa: B008
+    verify_user_scope(request, req.user_id)
+    dna = await svc.ensure_session(req.user_id, req.session_id, req.style_dna)
+    items = await search_items_deck(
+        query=req.query,
+        dna=dna,
+        category=req.category,
+        max_budget_inr=req.max_budget_inr,
+        exclude_item_ids=req.exclude_item_ids,
+    )
+    return {"items": [it.model_dump() for it in items], "style_dna": dna.model_dump()}
 
 
 @app.post("/looks/search/stream", dependencies=[Depends(rate_limit), Depends(require_api_key)])

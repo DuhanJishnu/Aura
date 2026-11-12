@@ -27,6 +27,7 @@ export default function HomeStage({
   ready,
   intentOpen,
   lastBotReply,
+  lastError,
   onToggleIntent,
   onSend,
   onVoiceStart,
@@ -36,6 +37,7 @@ export default function HomeStage({
   ready: boolean;
   intentOpen: boolean;
   lastBotReply?: string;
+  lastError?: string;
   onToggleIntent: () => void;
   onSend: (text: string) => void;
   onVoiceStart: () => void;
@@ -136,7 +138,11 @@ export default function HomeStage({
               animate={{ opacity: 1, y: 0 }}
               className="w-full space-y-2"
             >
-              {lastBotReply ? (
+              {lastError ? (
+                <p className="mx-auto max-w-md rounded-xl border border-rose-500/35 bg-rose-950/60 px-3 py-2 text-center text-xs text-rose-200">
+                  {lastError}
+                </p>
+              ) : lastBotReply ? (
                 <p
                   title={lastBotReply}
                   className="mx-auto max-w-md px-2 text-center text-sm italic leading-relaxed text-stone-300 line-clamp-2"

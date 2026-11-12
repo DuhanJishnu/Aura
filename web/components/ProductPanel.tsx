@@ -29,6 +29,7 @@ export default function ProductPanel({ shopper }: { shopper: Shopper }) {
       return (
         <LookDeck
           looks={panel.looks}
+          deckId={shopper.lookDeckId}
           onSwipe={shopper.swipeLook}
           onUndo={() => void shopper.undoSwipeLook()}
           onLoadMore={() => void shopper.searchMoreLooks()}
@@ -48,7 +49,10 @@ export default function ProductPanel({ shopper }: { shopper: Shopper }) {
       return (
         <SwipeDeck
           items={panel.items}
+          deckId={shopper.itemDeckId}
           onSwipe={shopper.swipe}
+          onUndo={() => void shopper.undoSwipeItem()}
+          onBuy={(item) => shopper.setBuySheetItem(item)}
           onStyleAround={(item) =>
             shopper.send(`Build a complete outfit around the ${item.color} ${item.name} by ${item.brand}`)
           }
@@ -57,7 +61,8 @@ export default function ProductPanel({ shopper }: { shopper: Shopper }) {
           }
           onOpenDetail={shopper.openDetail}
           onSwitchToGrid={() => shopper.setViewMode("grid")}
-          onFindMore={() => shopper.send("Find more pieces online inspired by what I just liked!")}
+          onFindMore={() => void shopper.searchMoreItems()}
+          onNeedMore={() => void shopper.searchMoreItems()}
         />
       );
     case "grid":

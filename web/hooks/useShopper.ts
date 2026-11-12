@@ -9,6 +9,7 @@ import type {
   Message,
   OutfitLook,
   PanelView,
+  SearchMeta,
   StyleDNA,
   UIAction,
 } from "@/lib/types";
@@ -72,13 +73,17 @@ export function useShopper({ onReply, onSend }: Options = {}) {
   const [styleDna, setStyleDna] = useState<StyleDNA | null>(null);
   const [deckItems, setDeckItems] = useState<FashionItem[]>([]);
   const [deckLooks, setDeckLooks] = useState<OutfitLook[]>([]);
+  const [itemDeckId, setItemDeckId] = useState<string>("items_init");
+  const [lookDeckId, setLookDeckId] = useState<string>("looks_init");
   const [profileOpen, setProfileOpen] = useState(false);
   const [closetOpen, setClosetOpen] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [confirmForgetOpen, setConfirmForgetOpen] = useState(false);
   const [buySheetLook, setBuySheetLook] = useState<OutfitLook | null>(null);
+  const [buySheetItem, setBuySheetItem] = useState<FashionItem | null>(null);
   const [intentOpen, setIntentOpen] = useState(false);
   const [lastOccasion, setLastOccasion] = useState("date night");
+  const lastItemSearch = useRef<SearchMeta | null>(null);
   const nextId = useRef(1);
   const busy = useRef(false);
   const focusedId = useRef<string | null>(null);
@@ -138,6 +143,12 @@ export function useShopper({ onReply, onSend }: Options = {}) {
 
     if (a.type === "swipe_deck" && a.items.length) {
       setDeckItems(a.items);
+      setItemDeckId(`items_${Date.now()}`);
+      lastItemSearch.current = a.search_meta ?? {
+        query: a.items[0]?.category || "apparel",
+        category: a.items[0]?.category || "apparel",
+        max_budget_inr: null,
+      };
       focusedId.current = null;
       const view: PanelView = { kind: "swipe_deck", items: a.items };
       lastDeckView.current = view;
@@ -145,6 +156,7 @@ export function useShopper({ onReply, onSend }: Options = {}) {
       maybeShowTutorial();
     } else if (a.type === "grid" && a.items.length) {
       setDeckItems(a.items);
+      setItemDeckId(`items_${Date.now()}`);
       focusedId.current = null;
       const view: PanelView = { kind: "grid", items: a.items };
       lastDeckView.current = view;
@@ -156,6 +168,7 @@ export function useShopper({ onReply, onSend }: Options = {}) {
       focusedId.current = null;
       if (a.looks && a.looks.length > 0) {
         setDeckLooks(a.looks);
+        setLookDeckId(`looks_${Date.now()}`);
         setLastOccasion(a.looks[0].occasion || "smart casual");
         const view: PanelView = { kind: "looks_deck", looks: a.looks };
         lastDeckView.current = view;
@@ -290,6 +303,7 @@ export function useShopper({ onReply, onSend }: Options = {}) {
     if (!ids || busy.current) return;
     busy.current = true;
     setThinking(true);
+    setLookDeckId(`looks_${Date.now()}`);
     setPanel({ kind: "loading" });
     const seen = Array.from(new Set([...(styleDna?.seen_look_ids ?? []), ...deckLooks.map((l) => l.id)]));
     const body = {
@@ -342,6 +356,42 @@ export function useShopper({ onReply, onSend }: Options = {}) {
       busy.current = false;
     }
   }, [ids, styleDna, deckLooks, lastOccasion, updateDna, addMessage, goBack]);
+
+  const searchMoreItems = useCallback(async () => {
+    const searchMeta = lastItemSearch.current;
+    if (!ids || !searchMeta || busy.current) return;
+    busy.current = true;
+    setThinking(true);
+    try {
+      const exclude = Array.from(new Set([...(styleDna?.seen_item_ids ?? []), ...deckItems.map((i) => i.id)]));
+      const out = await api.searchItems(ids, { ...searchMeta, excludeItemIds: exclude });
+      const existing = new Set(deckItems.map((i) => i.id));
+      const fresh = out.items.filter((i) => !existing.has(i.id));
+      if (fresh.length) {
+        const merged = [...deckItems, ...fresh];
+        setDeckItems(merged);
+        const view: PanelView = { kind: "swipe_deck", items: merged };
+        lastDeckView.current = view;
+        setPanel(view);
+      } else {
+        addMessage("bot", "That's everything I found for now. Want to try a different search?");
+      }
+      if (out.style_dna) updateDna(out.style_dna);
+    } catch (e) {
+      addMessage("err", errorText(e));
+    } finally {
+      setThinking(false);
+      busy.current = false;
+    }
+  }, [ids, styleDna, deckItems, updateDna, addMessage]);
+
+  const undoSwipeItem = useCallback(async () => {
+    if (!ids) return;
+    try {
+      const res = await api.swipeLook(ids, null, "undo");
+      updateDna(res.style_dna);
+    } catch { /* ignore */ }
+  }, [ids, updateDna]);
 
   const removeFromCloset = useCallback(async (itemId: string) => {
     if (!ids) return;
@@ -495,17 +545,21 @@ export function useShopper({ onReply, onSend }: Options = {}) {
     styleDna,
     deckItems,
     deckLooks,
+    itemDeckId,
+    lookDeckId,
     profileOpen,
     closetOpen,
     tutorialOpen,
     confirmForgetOpen,
     buySheetLook,
+    buySheetItem,
     intentOpen,
     setProfileOpen,
     setClosetOpen,
     setTutorialOpen,
     setConfirmForgetOpen,
     setBuySheetLook,
+    setBuySheetItem,
     setIntentOpen,
     setPanel,
     markTutorialSeen,
@@ -514,8 +568,10 @@ export function useShopper({ onReply, onSend }: Options = {}) {
     swipe,
     swipeLook,
     undoSwipeLook,
+    undoSwipeItem,
     removeWishlistLook,
     searchMoreLooks,
+    searchMoreItems,
     openDetail,
     setViewMode,
     goBack,

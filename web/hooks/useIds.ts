@@ -29,28 +29,62 @@ export function useIds(): Ids | null {
   const [ids, setIds] = useState<Ids | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const sessionId = stable(window.sessionStorage, "shopper_sid");
     const userId = stable(window.localStorage, "shopper_uid");
     const existingToken = loadToken();
     setIds({ sessionId, userId, token: existingToken });
 
-    if (!existingToken && typeof fetch === "function") {
-      void fetch("/api/auth/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId }),
-      })
-        .then(async (res) => {
-          if (!res.ok) return null;
-          const data = (await res.json()) as { token?: string };
-          if (data?.token) {
-            try { window.localStorage.setItem("shopper_tok", data.token); } catch { /* ignore */ }
-            setIds((prev) => (prev ? { ...prev, token: data.token } : { sessionId, userId, token: data.token }));
+    if (typeof fetch !== "function") return;
+
+    const claimSession = async (uid: string, token?: string): Promise<{ userId: string; token?: string } | null> => {
+      try {
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (token) headers["X-Aura-Token"] = token;
+        const res = await fetch("/api/auth/session", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ user_id: uid }),
+        });
+        if (res.status === 403) {
+          // Cached userId is already bound to a different server-side token; rotate to a fresh profile ID.
+          const freshId = crypto.randomUUID();
+          try {
+            window.localStorage.setItem("shopper_uid", freshId);
+            window.localStorage.removeItem("shopper_tok");
+          } catch { /* ignore */ }
+          const retry = await fetch("/api/auth/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: freshId }),
+          });
+          if (!retry.ok) return { userId: freshId, token: undefined };
+          const retryData = (await retry.json()) as { token?: string };
+          if (retryData?.token) {
+            try { window.localStorage.setItem("shopper_tok", retryData.token); } catch { /* ignore */ }
           }
-          return null;
-        })
-        .catch(() => undefined);
-    }
+          return { userId: freshId, token: retryData?.token };
+        }
+        if (!res.ok) return null;
+        const data = (await res.json()) as { token?: string };
+        if (data?.token) {
+          try { window.localStorage.setItem("shopper_tok", data.token); } catch { /* ignore */ }
+          return { userId: uid, token: data.token };
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    };
+
+    void claimSession(userId, existingToken).then((next) => {
+      if (cancelled || !next) return;
+      setIds({ sessionId, userId: next.userId, token: next.token });
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return ids;

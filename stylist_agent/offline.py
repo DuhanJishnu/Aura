@@ -6,6 +6,7 @@ import re
 from collections.abc import AsyncIterator
 from typing import Any
 
+from app import config
 from app.service import StylistService, VisionBackend
 from stylist_agent.memory import PreferenceStore, infer_season, rerank_items, summarize_dna_for_prompt
 from stylist_agent.schemas import (
@@ -158,11 +159,183 @@ _SAMPLE_ITEMS: list[FashionItem] = [
         url_verified=False,
         source_domain="google.com",
     ),
+    FashionItem(
+        id="item_adidas_samba",
+        name="Samba OG Leather Sneakers (Black/White)",
+        brand="Adidas",
+        category="shoes",
+        price_text="₹10,999",
+        price_estimate_inr=10999,
+        color="black",
+        color_hex="#1B1B1D",
+        aesthetic_tags=["retro", "streetwear", "minimalist"],
+        fit_note="Low-profile leather upper with suede T-toe.",
+        why_it_suits_you="Timeless terrace sneaker that sharpens relaxed trousers and denim.",
+        styling_tip="Pair with straight ecru jeans and an open overshirt.",
+        url="https://www.google.com/search?tbm=shop&q=Adidas+Samba+OG+Black",
+        url_verified=False,
+        source_domain="google.com",
+    ),
+    FashionItem(
+        id="item_asics_gel1130",
+        name="GEL-1130 Mesh & Metallic Runners",
+        brand="ASICS",
+        category="shoes",
+        price_text="₹8,999",
+        price_estimate_inr=8999,
+        color="silver",
+        color_hex="#C8CCD0",
+        aesthetic_tags=["sporty", "y2k", "effortless modern"],
+        fit_note="Cushioned GEL heel with breathable mesh.",
+        why_it_suits_you="All-day comfort with clean silver-grey runner lines.",
+        styling_tip="Style with wide charcoal trousers and a boxy tee.",
+        url="https://www.google.com/search?tbm=shop&q=ASICS+GEL+1130+Silver",
+        url_verified=False,
+        source_domain="google.com",
+    ),
+    FashionItem(
+        id="item_nike_killshot2",
+        name="Killshot 2 Leather & Suede Sneakers",
+        brand="Nike",
+        category="shoes",
+        price_text="₹8,495",
+        price_estimate_inr=8495,
+        color="sail",
+        color_hex="#EFECE3",
+        aesthetic_tags=["minimalist", "smart casual", "retro"],
+        fit_note="Slim court profile with gum rubber sole.",
+        why_it_suits_you="Clean warm-white leather bridges smart casual and weekend looks.",
+        styling_tip="Great with chinos or relaxed olive linen.",
+        url="https://www.google.com/search?tbm=shop&q=Nike+Killshot+2+Sail",
+        url_verified=False,
+        source_domain="google.com",
+    ),
+    FashionItem(
+        id="item_converse_chuck70",
+        name="Chuck 70 Vintage Canvas Low (Parchment)",
+        brand="Converse",
+        category="shoes",
+        price_text="₹5,999",
+        price_estimate_inr=5999,
+        color="cream",
+        color_hex="#EAE3D2",
+        aesthetic_tags=["classic", "casual", "minimalist"],
+        fit_note="Heavyweight canvas with cushioned OrthoLite insole.",
+        why_it_suits_you="Warm parchment canvas softens monochrome outfits.",
+        styling_tip="Wear with cuffed straight denim or linen shorts.",
+        url="https://www.google.com/search?tbm=shop&q=Converse+Chuck+70+Parchment+Low",
+        url_verified=False,
+        source_domain="google.com",
+    ),
+    FashionItem(
+        id="item_vans_oldskool",
+        name="Old Skool Suede & Canvas Sneakers",
+        brand="Vans",
+        category="shoes",
+        price_text="₹5,499",
+        price_estimate_inr=5499,
+        color="black",
+        color_hex="#18181A",
+        aesthetic_tags=["streetwear", "casual", "skate"],
+        fit_note="Padded collar with signature waffle outsole.",
+        why_it_suits_you="Grounded black-and-white skate classic for daily wear.",
+        styling_tip="Pair with relaxed cargos or straight black jeans.",
+        url="https://www.google.com/search?tbm=shop&q=Vans+Old+Skool+Black",
+        url_verified=False,
+        source_domain="google.com",
+    ),
+    FashionItem(
+        id="item_reebok_clubc85",
+        name="Club C 85 Vintage Chalk Sneakers",
+        brand="Reebok",
+        category="shoes",
+        price_text="₹7,599",
+        price_estimate_inr=7599,
+        color="white",
+        color_hex="#F3EFE6",
+        aesthetic_tags=["quiet luxury", "retro", "minimalist"],
+        fit_note="Soft garment leather upper, true to size.",
+        why_it_suits_you="Unbranded clean chalk leather goes with every trouser.",
+        styling_tip="Match with pleated trousers and a knit polo.",
+        url="https://www.google.com/search?tbm=shop&q=Reebok+Club+C+85+Vintage+Chalk",
+        url_verified=False,
+        source_domain="google.com",
+    ),
+    FashionItem(
+        id="item_puma_rsx",
+        name="RS-X Reinvented Chunky Sneakers",
+        brand="Puma",
+        category="shoes",
+        price_text="₹7,999",
+        price_estimate_inr=7999,
+        color="grey",
+        color_hex="#8E9297",
+        aesthetic_tags=["athletic minimalist", "streetwear", "chunky"],
+        fit_note="Bulky sculpted midsole with breathable mesh.",
+        why_it_suits_you="Adds architectural volume under wide-leg joggers.",
+        styling_tip="Balance with an oversized tee or hoodie.",
+        url="https://www.google.com/search?tbm=shop&q=Puma+RS-X+Grey",
+        url_verified=False,
+        source_domain="google.com",
+    ),
+    FashionItem(
+        id="item_adidas_stan",
+        name="Stan Smith Lux Leather Sneakers",
+        brand="Adidas",
+        category="shoes",
+        price_text="₹11,999",
+        price_estimate_inr=11999,
+        color="white",
+        color_hex="#F7F6F2",
+        aesthetic_tags=["quiet luxury", "minimalist", "smart casual"],
+        fit_note="Supple full-grain leather lining.",
+        why_it_suits_you="Elevated minimalist court shoe that replaces dress shoes.",
+        styling_tip="Wear with an unstructured blazer and dark denim.",
+        url="https://www.google.com/search?tbm=shop&q=Adidas+Stan+Smith+Lux+White",
+        url_verified=False,
+        source_domain="google.com",
+    ),
+    FashionItem(
+        id="item_nb_327",
+        name="327 Suede & Nylon Retro Runners",
+        brand="New Balance",
+        category="shoes",
+        price_text="₹9,499",
+        price_estimate_inr=9499,
+        color="beige",
+        color_hex="#D2C6B2",
+        aesthetic_tags=["retro", "effortless modern", "minimalist"],
+        fit_note="Flared midsole with lightweight suede overlays.",
+        why_it_suits_you="Warm sand suede pairs effortlessly with olive and cream.",
+        styling_tip="Style with relaxed chinos and a ribbed tank.",
+        url="https://www.google.com/search?tbm=shop&q=New+Balance+327+Beige",
+        url_verified=False,
+        source_domain="google.com",
+    ),
+    FashionItem(
+        id="item_clarks_loafer",
+        name="Unstructured Leather Penny Loafers",
+        brand="Clarks",
+        category="shoes",
+        price_text="₹6,999",
+        price_estimate_inr=6999,
+        color="brown",
+        color_hex="#5C3D2E",
+        aesthetic_tags=["quiet luxury", "smart casual", "tailored"],
+        fit_note="Cushioned footbed with flexible rubber sole.",
+        why_it_suits_you="Polished espresso leather for smart-casual and date nights.",
+        styling_tip="Wear with no-show socks and pleated trousers.",
+        url="https://www.google.com/search?tbm=shop&q=Clarks+Leather+Penny+Loafers+Brown",
+        url_verified=False,
+        source_domain="google.com",
+    ),
 ]
 
 
 class FakeSearchBackend(SearchBackend):
     """Deterministic search & outfit backend for offline testing and key-less demos."""
+
+    allow_imageless = True
 
     async def search(
         self,
@@ -170,10 +343,14 @@ class FakeSearchBackend(SearchBackend):
         category: str,
         max_budget_inr: int | None,
         dna: StyleDNA,
+        *,
+        exclude_ids: set[str] | None = None,
+        limit: int | None = None,
     ) -> list[FashionItem]:
         q = query.lower()
         cat = category.lower()
-        pool = list(_SAMPLE_ITEMS)
+        excluded = set(exclude_ids or ())
+        pool = [i for i in _SAMPLE_ITEMS if i.id not in excluded]
 
         def relevance(item: FashionItem) -> tuple[int, int]:
             score = 0
@@ -195,7 +372,8 @@ class FakeSearchBackend(SearchBackend):
             affordable = [i for i in pool if (i.price_estimate_inr or 0) <= max_budget_inr]
             if affordable:
                 pool = affordable + [i for i in pool if i not in affordable]
-        return pool[:5]
+        page_limit = limit or config.ITEM_DECK_MAX
+        return pool[:page_limit]
 
     async def curate_outfit(
         self,
