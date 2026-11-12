@@ -1,55 +1,45 @@
 # Architecture
 
-## One turn, step by step
+## Overview
+Shopper ("Aura") is built on the **Google Agent Development Kit (`google-adk`)** with **zero database**. Instead of querying a static SQLite catalog, Aura discovers real buyable items online using **Google Search grounding**, builds head-to-toe **Outfit Lookbooks**, learns user taste from **Tinder/Instagram-style swipes**, and supports real-time **Gemini Live bidirectional voice**.
 
-1. **Fast path** (`app/llm/fastpath.py`): exact, unambiguous messages ("9", "sports shoes", "for me", "hi", "yes" at a
-   confirmation, "buy this", "compare the first and third") become structured fields with no LLM call.
-2. **Parse**: otherwise Gemini turns the message into an `Extraction` (intent, use, size, budget, category, product position...).
-   A malformed answer is retried once; a second failure produces a polite "say it again", never a crash.
-3. **Signals and names** (`signals.py`, `resolve.py`): deterministic backstops add only what the shopper plainly said: an exact
-   budget, a fit or durability question, "I'll take it", an explicit "no thanks", "just browsing, thanks" (a brush-off), a
-   category word. A shoe named by brand, color or quoted price is mapped to its position on screen; same-name shoes are told
-   apart by price or by the shoe the assistant just recommended; otherwise the engine asks.
-4. **Policy** (`policy/rules.py`): a rule table maps the situation (intent, whether a no is in force, what is awaiting
-   confirmation, what is on screen, what is missing) to one action. First match wins; the rule name is returned in the
-   response so behavior can be inspected and evaluated.
-5. **Action**: search, opinion, compare, objection, browse, cart, checkout, profile, complexion. Facts come from SQLite.
-   `on_ui` fires as soon as the products to show are known.
-6. **Wording**: only replies that carry content are worded by the LLM (plain questions, "no" replies and all money actions are
-   fixed text). Opinions, comparisons and objection answers go through the **grounding validator**: regenerate once, strip
-   unsupported sentences, fall back to a reply built from the data.
-7. **Response**: `{reply, slots, ui_action, policy}`. Streaming sends `ui` (the panel) first, then `text`, then `done`.
+```mermaid
+flowchart LR
+  UI["Next.js Web App<br/>(Chat + Swipe Deck + Outfit Board + Closet)"] -->|"SSE POST /chat/stream"| API["FastAPI (app/main.py)"]
+  UI -->|"POST /swipe"| MEM["PreferenceStore<br/>(In-Memory + JSON + localStorage sync)"]
+  UI -->|"WS /ws/live/{user_id}/{session_id}"| LIVE["ADK Runner.run_live()<br/>Gemini Live BIDI Audio"]
+  API --> SVC["StylistService (app/service.py)"]
+  SVC --> RUN["ADK Runner + InMemorySessionService<br/>+ InMemoryMemoryService"]
+  RUN --> ROOT["root_agent: aura_stylist"]
+  ROOT --> SEARCH["search_fashion_online<br/>(ADK web_fashion_finder + google_search)"]
+  ROOT --> OUTFIT["curate_outfit<br/>(OutfitLook + Closet integration)"]
+  ROOT --> PREF["record_style_preference / get_style_profile_and_closet"]
+  ROOT --> PHOTO["trigger_photo_stylist / compare_fashion_items"]
+  SEARCH -->|"grounding_metadata.grounding_chunks"| RANK["StyleDNA Reranker<br/>(excludes passed, boosts liked taste)"]
+  RANK -->|"tool_context.state['ui_action']"| UI
+```
 
-## Design decisions worth knowing
+## Google ADK Package (`stylist_agent/`)
+`stylist_agent/agent.py` exposes `root_agent` (`aura_stylist`), so the exact same agent works with:
+- FastAPI (`app/main.py` -> `StylistService`)
+- `adk web` / `adk run` (ADK CLI)
+- `adk eval` / `AgentEvaluator` (`eval/adk_eval/stylist.evalset.json`)
 
-- **Python decides, the LLM words.** Predictable behavior, cheaper calls, and a stable surface to test: 251 tests run with
-  a fake LLM and no network.
-- **A "no" is a state, not a message.** It stays in force until the shopper re-engages with shopping content; the same words
-  mean different things before and after it.
-- **Money actions are templates.** A model can be wrong about a price; the order total never is.
-- **The validator beats streaming raw tokens.** Showing unvalidated model text would defeat grounding, so the latency win comes
-  from ordering (panel first), fewer LLM calls and lower thinking, not from raw token streaming.
-- **Categories share one engine.** Apparel sizes are stored as 1-6 (XS-XXL) and accessories as size 0 ("one size"); the
-  product's own category decides how a size is asked for, shown and saved. Only shoe sizes are saved to the profile.
-- **Evaluation is part of the product.** Every real run found bugs that unit tests with a fake LLM could not: see the log.
+### How Online Search & Grounded Swipe Cards Work
+1. `root_agent` calls `search_fashion_online(query, category, max_budget_inr)`.
+2. `LiveGoogleSearchBackend` runs an isolated ADK sub-agent (`web_fashion_finder`) equipped with `google_search` (keeping `google_search` cleanly separated from custom `FunctionTool`s).
+3. We collect every `grounding_chunk.web.uri` and `title` from `event.grounding_metadata`.
+4. A structured extraction pass (`_CardBatch` JSON schema) structures 4–6 `FashionItem` cards and ONLY attaches a direct product URL if it exists verbatim in `grounding_links` (`url_verified=true`); otherwise it generates a safe Google Shopping search link (`url_verified=false`) so links are never hallucinated.
+5. `rerank_items(items, dna)` filters out any items the user previously swiped left on (`disliked_item_keys`) and scores remaining items using their **Style DNA** (liked aesthetics, liked/avoided colors, seasonal undertone palette, liked brands, and budget).
+6. The ranked deck is written to `tool_context.state["ui_action"]` (`type="swipe_deck"`), which `StylistService.stream_chat()` emits immediately over SSE (`event: ui`) before the conversational reply finishes streaming.
 
-## Frontend (`web/`)
+## Zero-DB Taste Memory (`stylist_agent/memory.py`)
+- **Style DNA** stores: sizes (`shoes`, `tops`, `bottoms`), weighted aesthetic affinities (`minimalist`, `quiet luxury`, `streetwear`, etc.), liked/disliked colors, liked brands, budget ceiling, skin tone/undertone/color season, `saved_closet`, `saved_outfits`, `disliked_item_keys`, `swipe_history`, and transparent `facts` provenance (`stated`, `confirmed`, `swiped`, `inferred`).
+- **Free-tier persistence without a database**: `PreferenceStore` caches profiles in memory + lightweight JSON files (`data/profiles/*.json`), AND the Next.js frontend caches `StyleDNA` in `localStorage` and syncs on mount (`POST /profile/sync`) and chat turns so cold restarts on free container hosts never lose user taste.
 
-Next.js (App Router, TypeScript) with Tailwind. The browser only talks to its own origin: `app/api/[...path]/route.ts` proxies to
-`BACKEND_URL` and streams the body through, which is what lets server-sent events work (and means no CORS). State lives in one
-hook, `hooks/useShopper.ts` (chat, panel view, cart, profile, photo flow); `lib/stream.ts` reads the event stream and calls
-`onUi` the moment the products are known, so the grid loads while the sentence is still arriving. `hooks/useSpeech.ts` wraps the
-browser's speech recognition and synthesis. Components are small and presentational (`ProductDetail`, `CartDrawer`...), which
-is what the 29 Vitest tests exercise, along with the stream client, the proxy route and the main hook (against a fake backend).
+## Dual Voice Architecture
+1. **Primary — Gemini Live API (`WS /ws/live/{user_id}/{session_id}`)**: Uses ADK `Runner.run_live()` with `RunConfig(streaming_mode=StreamingMode.BIDI, response_modalities=["AUDIO"], output_audio_transcription=..., input_audio_transcription=...)` and `LiveRequestQueue`. Browser Web Audio captures 16kHz PCM16 audio and plays 24kHz PCM16 chunks with barge-in cancellation (`interrupted`).
+2. **Fallback — Browser Web Speech API (`web/hooks/useSpeech.ts`)**: Continuous SpeechRecognition + SpeechSynthesis for environments without Live WebSocket audio.
 
-## State and persistence
-
-SQLite (`data/shop.db`): `shoes` (all categories; the historical table name), `stock`, `orders`, `order_items`, `profiles`,
-`profile_facts`. Conversations (slots, shortlist, cart, pending confirmation) are in memory, bounded by `MAX_SESSIONS`, with
-a lock per conversation. A catalog built before categories existed is migrated on start (the new column defaults to shoes).
-
-## Privacy
-
-The complexion flow needs explicit consent per photo, estimates are shown for confirmation or correction, the photo exists only
-inside the request (not on disk, in the database or in the session; a test checks the session), and only confirmed results are
-saved. "Forget my profile" deletes the saved size and preferences. Voice recognition is done by the browser's speech service.
+## Privacy (Photo Studio)
+Both **Seasonal Color Analysis** (`/complexion/*`) and **Outfit Check** (`/outfit-check/analyze`) require explicit per-upload consent (`/complexion/consent`). Image bytes are decoded strictly inside the request handler, passed to Gemini Vision, and deleted immediately (`del data`); photos are never written to disk or stored in ADK session state.

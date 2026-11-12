@@ -1,18 +1,17 @@
-# api: the FastAPI backend (one instance: conversations live in memory)   web: the Next.js frontend
 services:
   api:
     build: .
-    env_file: .env                # GEMINI_API_KEY=...  (see .env.example)
+    env_file: .env
     environment:
-      TRUST_PROXY: "1"            # the web container forwards the real client address
+      TRUST_PROXY: "1"
     volumes:
-      - shopper-data:/app/data    # keeps orders and saved profiles across restarts
-    expose: ["8000"]
+      - stylist-profiles:/app/data/profiles
+    ports: ["8000:8000"]
   web:
     build: ./web
     environment:
       BACKEND_URL: http://api:8000
-    ports: ["3000:3000"]          # open http://localhost:3000
+    ports: ["3000:3000"]
     depends_on: [api]
 volumes:
-  shopper-data:
+  stylist-profiles:

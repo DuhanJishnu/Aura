@@ -1,9 +1,13 @@
 .venv/
 __pycache__/
 *.db
+*.db-shm
+*.db-wal
 .env
 .pytest_cache/
 .ruff_cache/
 node_modules/
 .next/
 *.zip
+data/profiles/
+.adk/

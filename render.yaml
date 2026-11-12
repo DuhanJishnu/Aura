@@ -1,0 +1,20 @@
+# One-click free-tier backend deploy on Render (https://render.com)
+services:
+  - type: web
+    name: aura-adk-stylist-api
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GOOGLE_GENAI_USE_VERTEXAI
+        value: "FALSE"
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: GEMINI_LIVE_MODEL
+        value: gemini-2.5-flash-native-audio-preview-12-2025
+      - key: TRUST_PROXY
+        value: "1"
+      - key: ALLOWED_ORIGINS
+        value: "*"
