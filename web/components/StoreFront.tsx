@@ -81,6 +81,7 @@ export default function StoreFront() {
             intentOpen={shopper.intentOpen}
             lastBotReply={lastBot}
             lastError={lastError}
+            liveVoice={liveVoice}
             onToggleIntent={() => shopper.setIntentOpen((v) => !v)}
             onSend={(t) => {
               shopper.setIntentOpen(false);
@@ -105,7 +106,20 @@ export default function StoreFront() {
               <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
                 <div className="flex items-center gap-2.5">
                   <Mascot
-                    state={shopper.thinking ? "thinking" : "idle"}
+                    state={
+                      liveVoice.connected
+                        ? liveVoice.phase === "speaking"
+                          ? "speaking"
+                          : liveVoice.phase === "thinking" || shopper.thinking
+                            ? "thinking"
+                            : liveVoice.phase === "listening"
+                              ? "listening"
+                              : "idle"
+                        : shopper.thinking
+                          ? "thinking"
+                          : "idle"
+                    }
+                    live={liveVoice.connected}
                     compact
                     onClick={() => shopper.setViewMode("home")}
                   />

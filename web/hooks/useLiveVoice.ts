@@ -37,7 +37,9 @@ function downsampleTo16k(input: Float32Array, inputSampleRate: number): ArrayBuf
   return buffer;
 }
 
-/** Real-time full-duplex Gemini Live voice hook over WebSocket with auth token, mic-denial handling, and auto-reconnect. */
+export type LiveVoicePhase = "idle" | "listening" | "thinking" | "speaking";
+
+/** Real-time full-duplex Gemini Live voice hook over WebSocket with auth token, mic-denial handling, echo prevention, and state tracking. */
 export function useLiveVoice({
   ids,
   onInputTranscript,
@@ -49,11 +51,13 @@ export function useLiveVoice({
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [status, setStatus] = useState("");
+  const [phase, setPhase] = useState<LiveVoicePhase>("idle");
   const wsRef = useRef<WebSocket | null>(null);
   const captureCtxRef = useRef<AudioContext | null>(null);
   const playCtxRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const muteGainRef = useRef<GainNode | null>(null);
   const nextPlayTimeRef = useRef(0);
   const activeSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const manualStopRef = useRef(false);
@@ -78,12 +82,15 @@ export function useLiveVoice({
     if (playCtxRef.current) {
       nextPlayTimeRef.current = playCtxRef.current.currentTime;
     }
+    setPhase((p) => (p === "speaking" ? "listening" : p));
   }, []);
 
   const cleanupMedia = useCallback(() => {
     clearAudioQueue();
     try { processorRef.current?.disconnect(); } catch { /* ignore */ }
     processorRef.current = null;
+    try { muteGainRef.current?.disconnect(); } catch { /* ignore */ }
+    muteGainRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     void captureCtxRef.current?.close().catch(() => undefined);
@@ -106,6 +113,7 @@ export function useLiveVoice({
     cleanupMedia();
     setConnected(false);
     setConnecting(false);
+    setPhase("idle");
     setStatus("");
   }, [cleanupMedia]);
 
@@ -128,8 +136,13 @@ export function useLiveVoice({
     source.start(startAt);
     nextPlayTimeRef.current = startAt + audioBuffer.duration;
     activeSourcesRef.current.push(source);
+    setPhase("speaking");
+
     source.onended = () => {
       activeSourcesRef.current = activeSourcesRef.current.filter((s) => s !== source);
+      if (activeSourcesRef.current.length === 0) {
+        setPhase("listening");
+      }
     };
   }, []);
 
@@ -141,7 +154,13 @@ export function useLiveVoice({
     setConnecting(true);
     setStatus("Connecting Gemini Live…");
     try {
-      const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const micStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       streamRef.current = micStream;
       const captureCtx = new AudioContext();
       captureCtxRef.current = captureCtx;
@@ -159,17 +178,29 @@ export function useLiveVoice({
         retriesRef.current = 0;
         setConnecting(false);
         setConnected(true);
+        setPhase("listening");
         setStatus("Gemini Live active — speak naturally anytime");
+
         const source = captureCtx.createMediaStreamSource(micStream);
         const proc = captureCtx.createScriptProcessor(4096, 1, 1);
         processorRef.current = proc;
+
+        // Prevent mic audio from looping back into speakers by routing through a 0-gain node
+        const muteGain = captureCtx.createGain();
+        muteGain.gain.value = 0;
+        muteGainRef.current = muteGain;
+
         proc.onaudioprocess = (ev) => {
           if (ws.readyState !== WebSocket.OPEN) return;
+          // While Gemini is speaking through speakers, avoid feeding speaker sound back into mic
+          if (activeSourcesRef.current.length > 0) return;
           const pcm = downsampleTo16k(ev.inputBuffer.getChannelData(0), captureCtx.sampleRate);
           ws.send(pcm);
         };
+
         source.connect(proc);
-        proc.connect(captureCtx.destination);
+        proc.connect(muteGain);
+        muteGain.connect(captureCtx.destination);
       };
 
       ws.onmessage = (ev) => {
@@ -179,11 +210,19 @@ export function useLiveVoice({
         }
         try {
           const msg = JSON.parse(String(ev.data)) as Record<string, unknown>;
-          if (msg.type === "interrupted") clearAudioQueue();
-          else if (msg.type === "input_transcript" && msg.text) cbRef.current.onInputTranscript?.(String(msg.text));
-          else if (msg.type === "output_transcript" && msg.text) cbRef.current.onOutputTranscript?.(String(msg.text));
-          else if (msg.type === "ui" && msg.ui_action) {
+          if (msg.type === "interrupted") {
+            clearAudioQueue();
+          } else if (msg.type === "input_transcript" && msg.text) {
+            setPhase("thinking");
+            cbRef.current.onInputTranscript?.(String(msg.text));
+          } else if (msg.type === "output_transcript" && msg.text) {
+            cbRef.current.onOutputTranscript?.(String(msg.text));
+          } else if (msg.type === "ui" && msg.ui_action) {
             cbRef.current.onUiAction?.(msg.ui_action as UIAction, msg.style_dna as StyleDNA | undefined);
+          } else if (msg.type === "turn_complete") {
+            if (activeSourcesRef.current.length === 0) {
+              setPhase("listening");
+            }
           } else if (msg.type === "error") {
             cbRef.current.onError?.(String(msg.message ?? "Live voice error."));
             stop();
@@ -195,12 +234,14 @@ export function useLiveVoice({
         cleanupMedia();
         setConnected(false);
         setConnecting(false);
+        setPhase("idle");
       };
 
       ws.onclose = (ev) => {
         cleanupMedia();
         setConnected(false);
         setConnecting(false);
+        setPhase("idle");
         if (!manualStopRef.current && ev.code !== 1000 && ev.code !== 1008 && retriesRef.current < 2) {
           retriesRef.current += 1;
           const delayMs = 900 * retriesRef.current;
@@ -237,5 +278,5 @@ export function useLiveVoice({
     else void start();
   }, [connected, connecting, start, stop]);
 
-  return { supported, connected, connecting, status, toggle, stop };
+  return { supported, connected, connecting, status, phase, toggle, stop };
 }

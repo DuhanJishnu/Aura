@@ -757,15 +757,21 @@ async def search_fashion_online(
     page_limit = max(1, min(limit or config.ITEM_DECK_MAX, config.ITEM_CANDIDATES))
     excluded = set(dna.seen_item_ids) | set(exclude_item_ids or [])
 
-    items = await _invoke_backend_search(
-        _backend(),
-        query=query,
-        category=cat,
-        max_budget_inr=max_budget_inr,
-        dna=dna,
-        exclude_ids=excluded,
-        limit=page_limit,
-    )
+    try:
+        items = await _invoke_backend_search(
+            _backend(),
+            query=query,
+            category=cat,
+            max_budget_inr=max_budget_inr,
+            dna=dna,
+            exclude_ids=excluded,
+            limit=page_limit,
+        )
+    except Exception as exc:
+        log.warning("Live search failed, falling back to offline curated cards: %s", exc)
+        from stylist_agent.offline import build_offline_deck
+
+        items = build_offline_deck(query=query, category=cat, max_budget_inr=max_budget_inr, dna=dna, limit=page_limit)
     ranked = rerank_items(items, dna)
 
     prev_cards = list(tool_context.state.get("current_cards") or [])
@@ -913,13 +919,19 @@ async def curate_outfit(
     """
     dna = _resolve_dna(tool_context)
     dna.declined = False
-    looks = await search_looks_deck(
-        occasion=occasion,
-        dna=dna,
-        vibe=vibe,
-        anchor_item=anchor_item,
-        max_budget_inr=max_budget_inr,
-    )
+    try:
+        looks = await search_looks_deck(
+            occasion=occasion,
+            dna=dna,
+            vibe=vibe,
+            anchor_item=anchor_item,
+            max_budget_inr=max_budget_inr,
+        )
+    except Exception as exc:
+        log.warning("Curate outfit failed, falling back to offline lookbook: %s", exc)
+        from stylist_agent.offline import build_offline_lookbook
+
+        looks = build_offline_lookbook(occasion=occasion, vibe=vibe, anchor_item=anchor_item, dna=dna)
     look = looks[0]
     tool_context.state["current_outfit"] = look.model_dump()
     tool_context.state["current_looks"] = [lk.model_dump() for lk in looks]

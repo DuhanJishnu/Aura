@@ -22,12 +22,12 @@ GEMINI_IMAGE_MODEL_FALLBACK = (
     os.getenv("GEMINI_IMAGE_MODEL_FALLBACK", "gemini-2.5-flash-image").strip() or "gemini-2.5-flash-image"
 )
 GEMINI_LIVE_MODEL = (
-    os.getenv("GEMINI_LIVE_MODEL", "gemini-2.5-flash-native-audio-preview-12-2025").strip()
-    or "gemini-2.5-flash-native-audio-preview-12-2025"
+    os.getenv("GEMINI_LIVE_MODEL", "gemini-2.5-flash-native-audio-latest").strip()
+    or "gemini-2.5-flash-native-audio-latest"
 )
 GEMINI_LIVE_MODEL_FALLBACK = (
-    os.getenv("GEMINI_LIVE_MODEL_FALLBACK", "gemini-2.0-flash-live-001").strip()
-    or "gemini-2.0-flash-live-001"
+    os.getenv("GEMINI_LIVE_MODEL_FALLBACK", "gemini-2.5-flash-native-audio-preview-12-2025").strip()
+    or "gemini-2.5-flash-native-audio-preview-12-2025"
 )
 GEMINI_LIVE_VOICE = os.getenv("GEMINI_LIVE_VOICE", "Aoede").strip() or "Aoede"
 GEMINI_THINKING = os.getenv("GEMINI_THINKING", "low").strip() or "low"

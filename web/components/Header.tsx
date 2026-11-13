@@ -7,7 +7,6 @@ export default function Header({
   wishlistCount,
   closetCount,
   speech,
-  liveVoice,
   onWishlist,
   onCloset,
   onProfile,
@@ -17,7 +16,7 @@ export default function Header({
   wishlistCount: number;
   closetCount: number;
   speech: { supported: boolean; enabled: boolean; toggle: () => void };
-  liveVoice: { supported: boolean; connected: boolean; connecting: boolean; toggle: () => void };
+  liveVoice?: { supported: boolean; connected: boolean; connecting: boolean; toggle: () => void };
   onWishlist: () => void;
   onCloset: () => void;
   onProfile: () => void;
@@ -41,17 +40,6 @@ export default function Header({
   return (
     <header className="relative z-30 flex h-14 shrink-0 flex-nowrap items-center justify-end gap-2 border-b border-white/10 bg-[#0d0f0e]/95 px-3 backdrop-blur-md sm:px-5">
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
-        {liveVoice.connected && (
-          <button
-            type="button"
-            onClick={liveVoice.toggle}
-            className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-[#6ba58a] px-2.5 py-1 text-xs font-semibold text-neutral-950 animate-pulse"
-          >
-            <Mic className="h-3.5 w-3.5" />
-            Live
-          </button>
-        )}
-
         <button
           type="button"
           onClick={onWishlist}
@@ -94,29 +82,6 @@ export default function Header({
               role="menu"
               className="absolute right-0 mt-2 w-56 overflow-hidden rounded-2xl border border-white/15 bg-[#151816] p-1.5 shadow-2xl"
             >
-              {liveVoice.supported && (
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={liveVoice.connecting}
-                  onClick={() => {
-                    liveVoice.toggle();
-                    setMenuOpen(false);
-                  }}
-                  className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-medium text-stone-200 hover:bg-white/10"
-                >
-                  <span className="flex items-center gap-2">
-                    <Mic className="h-4 w-4 text-[#6ba58a]" />
-                    {liveVoice.connecting
-                      ? "Connecting Live…"
-                      : liveVoice.connected
-                        ? "End Gemini Live"
-                        : "Gemini Live Voice"}
-                  </span>
-                  {liveVoice.connected && <span className="h-2 w-2 rounded-full bg-[#6ba58a]" />}
-                </button>
-              )}
-
               {speech.supported && (
                 <button
                   type="button"

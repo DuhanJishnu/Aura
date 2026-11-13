@@ -6,6 +6,7 @@ import { ArrowUp, Mic, Sparkles, Square } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useSpeechInput } from "@/hooks/useSpeech";
+import type { LiveVoicePhase } from "@/hooks/useLiveVoice";
 import Mascot, { type MascotState } from "./Mascot";
 
 const OCCASION_CHIPS = [
@@ -28,6 +29,7 @@ export default function HomeStage({
   intentOpen,
   lastBotReply,
   lastError,
+  liveVoice,
   onToggleIntent,
   onSend,
   onVoiceStart,
@@ -38,6 +40,15 @@ export default function HomeStage({
   intentOpen: boolean;
   lastBotReply?: string;
   lastError?: string;
+  liveVoice?: {
+    supported: boolean;
+    connected: boolean;
+    connecting: boolean;
+    phase?: LiveVoicePhase;
+    status?: string;
+    toggle: () => void;
+    stop: () => void;
+  };
   onToggleIntent: () => void;
   onSend: (text: string) => void;
   onVoiceStart: () => void;
@@ -68,13 +79,23 @@ export default function HomeStage({
     return () => clearInterval(id);
   }, [thinking]);
 
-  const mascotState: MascotState = thinking
-    ? "thinking"
-    : voice.listening
-      ? "listening"
-      : text.trim() || intentOpen
-        ? "happy"
-        : "idle";
+  const mascotState: MascotState = liveVoice?.connected
+    ? liveVoice.phase === "speaking"
+      ? "speaking"
+      : liveVoice.phase === "thinking" || thinking
+        ? "thinking"
+        : liveVoice.phase === "listening"
+          ? "listening"
+          : "idle"
+    : thinking
+      ? "thinking"
+      : voice.listening
+        ? "listening"
+        : text.trim() || intentOpen
+          ? "happy"
+          : "idle";
+
+  const isLive = Boolean(liveVoice?.connected);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,14 +107,53 @@ export default function HomeStage({
 
   return (
     <div className="relative flex flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-6 text-center">
-      {/* Subtle dark emerald backdrop glow */}
+      {/* Subtle background glow: cyan when Live, emerald when Normal */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute top-1/3 left-1/2 h-80 w-80 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#6ba58a]/12 blur-[110px]"
+        className={`pointer-events-none absolute top-1/3 left-1/2 h-80 w-80 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[110px] transition-colors duration-700 ${
+          isLive ? "bg-[#38bdf8]/15" : "bg-[#6ba58a]/12"
+        }`}
       />
 
-      <div className="relative z-10 flex w-full max-w-lg flex-col items-center gap-6">
-        <Mascot state={mascotState} onClick={onToggleIntent} />
+      <div className="relative z-10 flex w-full max-w-lg flex-col items-center gap-5">
+        <Mascot state={mascotState} live={isLive} onClick={onToggleIntent} />
+
+        {/* Prominent Live Voice Chat Button */}
+        {liveVoice?.supported && (
+          <button
+            type="button"
+            disabled={liveVoice.connecting}
+            onClick={liveVoice.toggle}
+            className={`group flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold shadow-lg transition-all ${
+              isLive
+                ? "border-[#38bdf8]/70 bg-[#0c4a6e]/50 text-[#7dd3fc] shadow-[0_0_24px_rgba(56,189,248,0.3)] hover:bg-[#0c4a6e]/70"
+                : "border-white/15 bg-white/5 text-stone-200 hover:border-[#38bdf8]/60 hover:bg-[#38bdf8]/10 hover:text-[#7dd3fc]"
+            }`}
+          >
+            <span className="relative flex h-2.5 w-2.5 items-center justify-center">
+              {isLive ? (
+                <>
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#38bdf8] opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#38bdf8]" />
+                </>
+              ) : (
+                <span className="h-2 w-2 rounded-full bg-[#38bdf8]" />
+              )}
+            </span>
+            <Mic className={`h-3.5 w-3.5 ${isLive ? "text-[#38bdf8]" : "text-stone-300 group-hover:text-[#38bdf8]"}`} />
+            <span>
+              {liveVoice.connecting
+                ? "Connecting Gemini Live…"
+                : isLive
+                  ? liveVoice.phase === "speaking"
+                    ? "Aura is talking · Tap to end"
+                    : liveVoice.phase === "thinking"
+                      ? "Aura is thinking… · Tap to end"
+                      : "Live Voice Active · Tap to end"
+                  : "Live Voice Chat"}
+            </span>
+          </button>
+        )}
 
         {/* Speech Bubble / Intent Prompt */}
         <AnimatePresence mode="wait">

@@ -530,6 +530,10 @@ class StylistService:
             for model_name in dict.fromkeys([config.GEMINI_LIVE_MODEL, config.GEMINI_LIVE_MODEL_FALLBACK]):
                 try:
                     live_agent = build_stylist_agent(model=model_name)
+                    # Live BIDI audio requires thinking_budget=0 to prevent 1011 protocol errors on v1alpha
+                    live_agent.generate_content_config = types.GenerateContentConfig(
+                        thinking_config=types.ThinkingConfig(thinking_budget=0)
+                    )
                     live_runner, _, _ = create_runner(
                         agent=live_agent,
                         session_service=self.session_service,
